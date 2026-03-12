@@ -1,22 +1,22 @@
 import hashlib
 import logging
+from urllib.parse import quote
+from urllib.parse import urlparse
 
 import requests
-from requests.auth import HTTPBasicAuth, HTTPDigestAuth
-from urllib.parse import urlparse, quote
+from requests.auth import HTTPBasicAuth
+from requests.auth import HTTPDigestAuth
 
-
-from rets.exceptions import (
-    NotLoggedIn,
-    MissingVersion,
-    HTTPException,
-    RETSException,
-    MaxrowException,
-)
+from rets.exceptions import HTTPException
+from rets.exceptions import MaxrowException
+from rets.exceptions import MissingVersion
+from rets.exceptions import NotLoggedIn
+from rets.exceptions import RETSException
 from rets.parsers.get_object import MultipleObjectParser
 from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
-from rets.parsers.metadata import CompactMetadata, StandardXMLMetadata
+from rets.parsers.metadata import CompactMetadata
+from rets.parsers.metadata import StandardXMLMetadata
 from rets.parsers.search import OneXSearchCursor
 from rets.utils import DMQLHelper
 from rets.utils.get_object import GetObject

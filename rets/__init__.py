@@ -1,5 +1,6 @@
-from .session import Session
 from .exceptions import RETSException
+from .session import Session
+
 
 __title__ = "rets"
 __version__ = "1.0.0"

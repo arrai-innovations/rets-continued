@@ -3,7 +3,9 @@ import logging
 import xmltodict
 
 from rets.exceptions import ParseError
+
 from .base import Base
+
 
 logger = logging.getLogger("rets")
 

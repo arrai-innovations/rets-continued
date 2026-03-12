@@ -2,7 +2,8 @@ import hashlib
 
 import xmltodict
 
-from rets.exceptions import ParseError, RETSException
+from rets.exceptions import ParseError
+from rets.exceptions import RETSException
 from rets.parsers.base import Base
 
 

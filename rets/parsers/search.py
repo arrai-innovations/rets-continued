@@ -3,8 +3,10 @@ from io import BytesIO
 
 from defusedxml.ElementTree import iterparse
 
-from rets.exceptions import RETSException, MaxrowException
+from rets.exceptions import MaxrowException
+from rets.exceptions import RETSException
 from rets.parsers.base import Base
+
 
 logger = logging.getLogger("rets")
 
