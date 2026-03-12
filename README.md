@@ -1,34 +1,70 @@
+# rets-continued
 
-# RETS
+![python 3.10 status]
+![python 3.11 status]
+![python 3.12 status]
+![python 3.13 status]
+![python 3.14 status]
 
-[![PyPI version](https://badge.fury.io/py/rets.svg)](https://pypi.python.org/pypi/rets/)
-[![Build Status](https://travis-ci.org/refindlyllc/rets.svg?branch=master)](https://travis-ci.org/refindlyllc/rets)
-[![Coverage Status](https://coveralls.io/repos/github/refindlyllc/rets/badge.svg?branch=master)](https://coveralls.io/github/refindlyllc/rets?branch=master)
+![python coverage status]
 
-A pure python RETS client for real estate data.  Make requests to the MLS
-server to get real estate listings, media, and metadata.
+[![code style: ruff][]][ruff] ![ruff status][]
+
+<!--prettier-ignore-start-->
+<!--TOC-->
+
+- [rets-continued](#rets-continued)
+  - [About](#about)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Quickstart](#quickstart)
+  - [The Session Object](#the-session-object)
+    - [Session Parameters](#session-parameters)
+    - [Context Manager](#context-manager)
+  - [Metadata Methods](#metadata-methods)
+    - [rets_client.get_system_metadata()](#rets_clientget_system_metadata)
+    - [rets_client.get_resource_metadata(resource=None)](#rets_clientget_resource_metadataresourcenone)
+    - [rets_client.get_class_metadata(resource)](#rets_clientget_class_metadataresource)
+    - [rets_client.get_table_metadata(resource, class)](#rets_clientget_table_metadataresource-class)
+    - [rets_client.get_object_metadata(resource)](#rets_clientget_object_metadataresource)
+    - [rets_client.get_lookup_values(resource, lookup_name)](#rets_clientget_lookup_valuesresource-lookup_name)
+  - [Object Methods](#object-methods)
+    - [rets_client.get_preferred_object(resource, object_type, content_id, location=0)](#rets_clientget_preferred_objectresource-object_type-content_id-location0)
+    - [rets_client.get_object(resource, object_type, content_ids, object_ids='*', location=0)](#rets_clientget_objectresource-object_type-content_ids-object_ids-location0)
+  - [Searching](#searching)
+    - [Filters](#filters)
+    - [Examples Search Filters](#examples-search-filters)
+    - [Search Results](#search-results)
+    - [Custom Results Parser](#custom-results-parser)
+  - [RETS Exceptions](#rets-exceptions)
+  - [Contributing](#contributing)
+  - [Testing](#testing)
+  - [Helpful RETS Links](#helpful-rets-links)
+
+<!--TOC-->
+<!--prettier-ignore-end-->
+
+## About
+
+A pure python RETS client for real estate data. Make requests to the MLS server to get real estate listings, media, and metadata.
+
+This fork is maintained by Arrai Innovations based on the original [`rets`](https://github.com/refindlyllc/rets) by REFindly.
+
+## Requirements
+
+- **Python:** 3.10+
 
 ## Installation
 
-The easiest way to install is through pip.
-`pip install rets`
-
-If you need to build the package locally, it can be downloaded
-from [github](https://github.com/refindlyllc/rets) and installed
-through setuptools.
-
-```bash
-git clone https://github.com/refindlyllc/rets.git
-cd python-rets
-python setup.py install
+```console
+$ pip install rets-continued
 ```
 
 You can now import the rets module within Python.
 
 ## Quickstart
 
-After [installing](##installation) the rets package locally,
-make requests to an MLS server for data.
+After [installing](##installation) the rets package, make requests to an MLS server for data.
 
 ```python
 >>> from rets import Session
@@ -96,10 +132,7 @@ make requests to an MLS server for data.
 
 ## The Session Object
 
-All requests to a RETS server must be authenticated. The login credential
-fields must be passed to the Session object at instantiation. As some
-RETS servers limit the number of concurrent requests, it is also ideal
-to logout when requests to the RETS server are complete.
+All requests to a RETS server must be authenticated. The login credential fields must be passed to the Session object at instantiation. As some RETS servers limit the number of concurrent requests, it is also ideal to logout when requests to the RETS server are complete.
 
 ### Session Parameters
 
@@ -117,9 +150,7 @@ You can set the version here to override the value provided by the server
 
 ### Context Manager
 
-If you don't want to manually call the session's login and logout methods, 
-the Session object can be opened in a context manager that logs the client
-in and out automatically.
+If you don't want to manually call the session's login and logout methods, the Session object can be opened in a context manager that logs the client in and out automatically.
 
 ```python
 with Session(rets_client = Session(login_url, username, password) as s:
@@ -140,19 +171,15 @@ Returns the METADATA-SYSTEM information in a dictionary.
 
 ### rets_client.get_resource_metadata(resource=None)
 
-Returns the METADATA-RESOURCE information in a list of dicts. The
-resource argument can be supplied to this method to limit the returned
-value to just the dict containing that resource.
+Returns the METADATA-RESOURCE information in a list of dicts. The resource argument can be supplied to this method to limit the returned value to just the dict containing that resource.
 
 ### rets_client.get_class_metadata(resource)
 
-Returns the METADATA-CLASS information for a given resource in a list
-of dicts.
+Returns the METADATA-CLASS information for a given resource in a list of dicts.
 
 ### rets_client.get_table_metadata(resource, class)
 
-Returns the METADATA-TABLE information for a resource and class
-in a list of dicts.
+Returns the METADATA-TABLE information for a resource and class in a list of dicts.
 
 ### rets_client.get_object_metadata(resource)
 
@@ -160,33 +187,21 @@ Returns the METADATA-OBJECT information for a resource in a list of dicts
 
 ### rets_client.get_lookup_values(resource, lookup_name)
 
-Returns the METADATA-LOOKUP_TYPE information for a field of a resource. The
-result is a list of the lookup values for the given lookup_name.
+Returns the METADATA-LOOKUP_TYPE information for a field of a resource. The result is a list of the lookup values for the given lookup_name.
 
-Some RETS servers allow a wildcard `*` for the lookup name and will return all lookup values.
-In these cases, a dict is returned with the keys being each of the lookup_names and
-the values being the corresponding lists of values.
+Some RETS servers allow a wildcard `*` for the lookup name and will return all lookup values. In these cases, a dict is returned with the keys being each of the lookup_names and the values being the corresponding lists of values.
 
 ## Object Methods
 
-The session can get RETS Objects through the GetObject request. There
-are two methods for obtaining objects.
+The session can get RETS Objects through the GetObject request. There are two methods for obtaining objects.
 
 ### rets_client.get_preferred_object(resource, object_type, content_id, location=0)
 
-Returns a dict containing information on the preferred object for a
-given content_id.
+Returns a dict containing information on the preferred object for a given content_id.
 
 ### rets_client.get_object(resource, object_type, content_ids, object_ids='*', location=0)
 
-Returns a list of dicts containing information on objects for one or more
-content_ids. The content_ids can be passed as a list if there are multiple
-content_ids. The object_ids variable limits the objects returned to the index
-number of each object on the server. This can be useful when getting a single
-object or subset of total objects. Each dict contains a key of content_md5 that
-contains the md5 checksum for the object. This should help users identify duplicates
-supplied by the RETS servers or compare the objects against their previously
-saved objects.
+Returns a list of dicts containing information on objects for one or more content_ids. The content_ids can be passed as a list if there are multiple content_ids. The object_ids variable limits the objects returned to the index number of each object on the server. This can be useful when getting a single object or subset of total objects. Each dict contains a key of content_md5 that contains the md5 checksum for the object. This should help users identify duplicates supplied by the RETS servers or compare the objects against their previously saved objects.
 
 Here is an example of getting an object's images and saving them to file:
 
@@ -209,11 +224,9 @@ with Session(rets_client = Session(login_url, username, password) as s:
 
 ## Searching
 
-Use the client's search method to search for real estate data. All searches
- must have the resource, class, and search query. The query can be sent
- as either a Data Mining Query Language string or a search filter dictionary.
+Use the client's search method to search for real estate data. All searches must have the resource, class, and search query. The query can be sent as either a Data Mining Query Language string or a search filter dictionary.
 
- The search method takes the following parameters:
+The search method takes the following parameters:
 
 - resource: The resource that contains the class to search
 - resource_class: The class to search
@@ -227,20 +240,16 @@ Use the client's search method to search for real estate data. All searches
     Defaults to `0` indicating the search uses system field names
 - response_format: The format of the response you would like back, defaults to `COMPACT-DECODED`
 
-The resource and resource_class parameters are required. You must also provide either
-the search_filter parameter or the dmql_query parameter.
+The resource and resource_class parameters are required. You must also provide either the search_filter parameter or the dmql_query parameter.
 
-The dmql query is what RETS is expecting and the search_filter dict ends up
-creating the dmql to be sent to rets.
+The dmql query is what RETS is expecting and the search_filter dict ends up creating the dmql to be sent to rets.
 
 ```python
 >>> search_res = rets_client.search('Property', 'RES', dmql_query='(Status=A)')
 >>> the_same_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"})
 ```
 
-Many RETS servers limit the number of results returned with a search request.
-You may pass the limit and/or offset parameters to the search method to better
-control the result set.
+Many RETS servers limit the number of results returned with a search request. You may pass the limit and/or offset parameters to the search method to better control the result set.
 
 ```python
 >>> small_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"}, limit=1)
@@ -259,15 +268,13 @@ The RETS server only returned the first 10,000 results from this query.
 >>> second_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"}, offset=10000)
 ```
 
-Lastly, if there are any other parameters to send to the Search end point,
- you may provide them in the optional_parameters dict.
+Lastly, if there are any other parameters to send to the Search end point, you may provide them in the optional_parameters dict.
 
 ### Filters
 
-Complex queries in DQML can be troublesome to read and maintain. Creating
-these queries as search_filter dictionaries can make this a little better.
+Complex queries in DQML can be troublesome to read and maintain. Creating these queries as search_filter dictionaries can make this a little better.
 
-The following logical operators are parsed by client.
+The following logical operators are parsed by client:
 
 - $gte: numeric or datetime values greater than or equal to this.
 - $lte: numeric or datetime values less than or equal than to this.
@@ -278,8 +285,7 @@ The following logical operators are parsed by client.
 - $nin: a list of values a field cannot contain.
 - $neq: the value must not equal this.
 
-Additionally, all date, datetime, and time objects passed to the search_filter
- are converted to the appropriate format expected by RETS server.
+Additionally, all date, datetime, and time objects passed to the search_filter are converted to the appropriate format expected by RETS server.
 
 ### Examples Search Filters
 
@@ -296,7 +302,7 @@ Active listings in the past 48 hours.
 >>> results = rets_client.search('Property', 'RES', search_filter=filter)
 ```
 
-Expensive properties that have been on the market over 5 months
+Expensive properties that have been on the market over 5 months.
 
 ```python
 >>> five_months_ago = datetime.today() - datetime.timedelta(months=5)
@@ -310,9 +316,7 @@ Expensive properties that have been on the market over 5 months
 >>> results = rets_client.search('Property', 'RES', search_filter=filter)
 ```
 
-Listings on a "Main" street in a neighborhood that contains "Quail West".
-(Some RETS use legal descriptions of neighborhood data or allow brokers to
-enter inconsistent neighborhood names)
+Listings on a "Main" street in a neighborhood that contains "Quail West". Some RETS use legal descriptions of neighborhood data or allow brokers to enter inconsistent neighborhood names.
 
 ```python
 >>> filter = {
@@ -350,40 +354,27 @@ Searches with the RETS client return a generator of dictionaries that represents
 
 ### Custom Results Parser
 
-Some RETS server return non-standard search result responses. In these cases it is useful to create your own parser class.
-This class must define a method `generator` that takes a single argument of the rets server response. A simple example of
-this can be found in the [CREA Test](tests/custom_parser_example.py) file.
+Some RETS servers return non-standard search result responses. In these cases it is useful to create your own parser class. This class must define a method `generator` that takes a single argument of the rets server response. A simple example of this can be found in the [CREA Test](tests/custom_parser_example.py) file.
 
 When the Session is instantiated, pass the and instance of the class as the `search_parser` class.
 
 ## RETS Exceptions
 
-There are many RETS Reply Codes that can be returned from the server. As a rule, this rets library raises a
-`rets.exceptions.RETSException` for all reply codes that are non-zero. The reply_code and reply_text are set as
-parameters for the exception to make it easier for applications to catch and respond to specific reply codes.
+There are many RETS Reply Codes that can be returned from the server. As a rule, this rets library raises a `rets.exceptions.RETSException` for all reply codes that are non-zero. The reply_code and reply_text are set as parameters for the exception to make it easier for applications to catch and respond to specific reply codes.
 
 ## Contributing
 
-This RETS client has a long way to go, and keeping up with new [RESO Standards](http://www.reso.org/data-dictionary/)
-, RETS 2.0, and other features will require ongoing maintenance.
-Please feel free to fork this repo and make pull requests to the development branch
- if you wish to contribute. Ensure that all new code has accompanying
- tests. Travis-CI will run your code through the current and new tests
- when you make a pull request.
+Contributions are welcome. Please fork the repository and create a pull request with your changes. We reserve the right to review and modify your contributions before merging them into the main branch. By submitting a change you confirm that:
 
-All pull requests should reference an [Github issue](https://github.com/refindlyllc/rets/issues). Features
-and bugs should be discussed in the issue rather than be discussed in a pull request.
-
-Many thanks to the passive contribution of [@troydavisson](https://github.com/troydavisson)
- for his work on [PHRETS](https://github.com/troydavisson/PHRETS). We shamelessly used many of his great conventions to
- make this project successful.
+- You wrote the code (or have the right to contribute it), and
+- You’re happy for it to be released under this project’s MIT license.
 
 ## Testing
 
-If you wish to test the code prior to contribution use tox to test on python 2 and 3.
+Use pytest to run the test suite.
 
-```bash
-tox
+```console
+pytest tests/
 ```
 
 ## Helpful RETS Links
@@ -391,3 +382,13 @@ tox
 - [http://www.reso.org/glossary/](http://www.reso.org/glossary/)
 - [https://www.flexmls.com/developers/rets/tutorials/example-rets-session/](https://www.flexmls.com/developers/rets/tutorials/example-rets-session/)
 - [http://www.realtor.org/retsorg.nsf/pages/docs](http://www.realtor.org/retsorg.nsf/pages/docs)
+
+[python 3.10 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.svg
+[python 3.11 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.11.svg
+[python 3.12 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.12.svg
+[python 3.12 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.13.svg
+[python 3.14 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.14.svg
+[python coverage status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.coverage.svg
+[code style: ruff]: https://img.shields.io/badge/code%20style-ruff-000000.svg?style=for-the-badge
+[ruff]: https://docs.astral.sh/ruff/formatter/#style-guide
+[ruff status]: https://docs.arrai.dev/rets-continued/artifacts/main/ruff.svg

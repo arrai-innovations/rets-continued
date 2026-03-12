@@ -29,3 +29,11 @@ repos:
             stages: [pre-commit]
           - id: ruff-format
             stages: [pre-commit]
+
+    - repo: https://github.com/frnmst/md-toc
+      rev: 9.0.0
+      hooks:
+          - id: md-toc
+            stages: [pre-commit]
+            args: [-p, github, -u, -l6]
+            files: '.*\.md'
