@@ -23,7 +23,7 @@ class DMQLHelper(object):
         return query
 
     @staticmethod
-    def filter_to_dmql(filter_dict):
+    def filter_to_dmql(filter_dict):  # noqa: C901
         """Converts the filter dictionary into DMQL"""
 
         if not isinstance(filter_dict, (dict, collections.OrderedDict)):
@@ -52,7 +52,7 @@ class DMQLHelper(object):
 
             return evaluated
 
-        def evaluate_operators(key_dict):
+        def evaluate_operators(key_dict):  # noqa: C901
             """Turns the custom filter operators into the expected RETS query"""
             allowed_operators = [
                 "$gte",

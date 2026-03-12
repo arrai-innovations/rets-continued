@@ -304,7 +304,7 @@ class SessionTester(unittest.TestCase):
                     dmql_query="ListingPrice=200000",
                     optional_parameters={"Format": "Somecrazyformat"},
                 )
-                print(list(r))
+                print(list(r))  # noqa: T201
 
     def test_auto_offset(self):
         with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
@@ -406,7 +406,7 @@ class SessionTester(unittest.TestCase):
         self.assertEqual(len(list(object_metadata)), 3)
 
     def test_agent_digest_hash(self):
-        self.session.user_agent_password = "testing"
+        self.session.user_agent_password = "testing"  # noqa: S105
         self.assertIsNotNone(self.session._user_agent_digest_hash())
 
     def test_session_cookie_name(self):

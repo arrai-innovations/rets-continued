@@ -20,7 +20,7 @@ class ObjectParser(Base):
         obj["preferred"] = obj_head_dict.get("Preferred")
 
         if content:
-            md = hashlib.md5()
+            md = hashlib.md5() # noqa: S324
             md.update(content)
             obj["content"] = content
             obj["content_md5"] = md.hexdigest()

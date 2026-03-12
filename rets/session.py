@@ -338,7 +338,7 @@ class Session(object):
         collection = parser.parse_image_response(response)
         return collection
 
-    def search(
+    def search(  # noqa: C901
         self,
         resource,
         resource_class,
@@ -499,10 +499,10 @@ class Session(object):
             )
         version_number = self.version.strip("RETS/")
         user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode("utf-8")
-        a1 = hashlib.md5(user_str).hexdigest()
+        a1 = hashlib.md5(user_str).hexdigest()  # noqa: S324
         session_id = self.session_id if self.session_id is not None else ""
         digest_str = f"{a1!s}::{session_id!s}:{version_number!s}".encode(
             "utf-8"
         )
-        digest = hashlib.md5(digest_str).hexdigest()
+        digest = hashlib.md5(digest_str).hexdigest()  # noqa: S324
         return digest

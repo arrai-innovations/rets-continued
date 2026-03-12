@@ -81,7 +81,7 @@ class StandardXMLMetadata(Base):
             raise ParseError(msg)
         return key_cap
 
-    def parse(self, response, metadata_type):
+    def parse(self, response, metadata_type):  # noqa: C901
         """
         Parses RETS metadata using the STANDARD-XML format
         :param response: requests Response object
