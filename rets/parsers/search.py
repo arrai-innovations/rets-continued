@@ -1,6 +1,7 @@
 import logging
 from io import BytesIO
-from xml.etree import ElementTree as ET
+
+from defusedxml.ElementTree import iterparse
 
 from rets.exceptions import RETSException, MaxrowException
 from rets.parsers.base import Base
@@ -24,7 +25,7 @@ class OneXSearchCursor(Base):
         delim = "\t"  # Default to tab delimited
         columns = []
         response.raw.decode_content = True
-        events = ET.iterparse(BytesIO(response.content))
+        events = iterparse(BytesIO(response.content))
 
         for event, elem in events:
             # Analyze search record data
