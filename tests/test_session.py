@@ -1,11 +1,11 @@
 import unittest
+from urllib.parse import urlparse
 
 import responses
-from tests.custom_parser_example import CreaStandardXParser
-from urllib.parse import urlparse
 
 from rets.exceptions import RETSException
 from rets.session import Session
+from tests.custom_parser_example import CreaStandardXParser
 
 
 class SessionTester(unittest.TestCase):
