@@ -386,7 +386,7 @@ pytest tests/
 [python 3.10 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.svg
 [python 3.11 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.11.svg
 [python 3.12 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.12.svg
-[python 3.12 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.13.svg
+[python 3.13 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.13.svg
 [python 3.14 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.14.svg
 [python coverage status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.coverage.svg
 [code style: ruff]: https://img.shields.io/badge/code%20style-ruff-000000.svg?style=for-the-badge
