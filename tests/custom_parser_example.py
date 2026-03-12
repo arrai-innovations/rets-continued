@@ -4,7 +4,6 @@ from rets.exceptions import RETSException
 
 
 class CreaStandardXParser:
-
     def generator(self, response):
         rets = xmltodict.parse(response.content)["RETS"]
         reply_code = rets["@ReplyCode"]

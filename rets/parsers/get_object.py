@@ -21,7 +21,7 @@ class ObjectParser(Base):
         obj["preferred"] = obj_head_dict.get("Preferred")
 
         if content:
-            md = hashlib.md5() # noqa: S324
+            md = hashlib.md5()  # noqa: S324
             md.update(content)
             obj["content"] = content
             obj["content_md5"] = md.hexdigest()
@@ -49,9 +49,7 @@ class MultipleObjectParser(ObjectParser):
                 break
 
         if not boundary:
-            raise ParseError(
-                "Was not able to find the boundary between objects in a multipart response"
-            )
+            raise ParseError("Was not able to find the boundary between objects in a multipart response")
 
         if response.content is None:
             return
@@ -91,10 +89,7 @@ class MultipleObjectParser(ObjectParser):
             else:
                 header = clean_part
                 body = None
-            part_header_dict = {
-                k.strip(): v.strip()
-                for k, v in (h.split(":", 1) for h in header.split("\r\n"))
-            }
+            part_header_dict = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in header.split("\r\n"))}
 
             # Some multipart requests respond with a text/XML part stating an error
             if "xml" in part_header_dict.get("Content-Type"):
@@ -133,7 +128,5 @@ class SingleObjectParser(ObjectParser):
             xml = xmltodict.parse(response.text)
             self.analyze_reply_code(xml_response_dict=xml)
 
-        obj = self._response_object_from_header(
-            obj_head_dict=response.headers, content=response.content
-        )
+        obj = self._response_object_from_header(obj_head_dict=response.headers, content=response.content)
         yield obj

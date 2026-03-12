@@ -74,13 +74,9 @@ class Session:
         self.search_parser = search_parser
         self.timeout = timeout
         self.capabilities = {}
-        self.version = (
-            version
-        )  # Set by the RETS server response at login. You can override on initialization.
+        self.version = version  # Set by the RETS server response at login. You can override on initialization.
 
-        self.metadata_responses = (
-            {}
-        )  # Keep metadata in the session instance to avoid consecutive calls to RETS
+        self.metadata_responses = {}  # Keep metadata in the session instance to avoid consecutive calls to RETS
         self.metadata_format = metadata_format
         self.capabilities = {}
 
@@ -126,12 +122,8 @@ class Session:
             # relative URL given, so build this into an absolute URL
             login_url = self.capabilities.get("Login")
             if not login_url:
-                logger.error(
-                    "There is no login URL stored, so additional capabilities cannot be added."
-                )
-                raise ValueError(
-                    f"Cannot automatically determine absolute path for {uri!s} given."
-                )
+                logger.error("There is no login URL stored, so additional capabilities cannot be added.")
+                raise ValueError(f"Cannot automatically determine absolute path for {uri!s} given.")
 
             parts = urlparse(login_url)
             port = f":{parts.port}" if parts.port else ""
@@ -185,13 +177,9 @@ class Session:
         :param resource: The name of the resource to get metadata for
         :return: list
         """
-        result = self._make_metadata_request(
-            meta_id=0, metadata_type="METADATA-RESOURCE"
-        )
+        result = self._make_metadata_request(meta_id=0, metadata_type="METADATA-RESOURCE")
         if resource:
-            result = next(
-                (item for item in result if item["ResourceID"] == resource), None
-            )
+            result = next((item for item in result if item["ResourceID"] == resource), None)
         return result
 
     def get_class_metadata(self, resource):
@@ -200,9 +188,7 @@ class Session:
         :param resource: The resource name to get class metadata for
         :return: list
         """
-        return self._make_metadata_request(
-            meta_id=resource, metadata_type="METADATA-CLASS"
-        )
+        return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-CLASS")
 
     def get_table_metadata(self, resource, resource_class):
         """
@@ -211,9 +197,7 @@ class Session:
         :param resource_class: The name of the class to get metadata from
         :return: list
         """
-        return self._make_metadata_request(
-            meta_id=resource + ":" + resource_class, metadata_type="METADATA-TABLE"
-        )
+        return self._make_metadata_request(meta_id=resource + ":" + resource_class, metadata_type="METADATA-TABLE")
 
     def get_object_metadata(self, resource):
         """
@@ -221,9 +205,7 @@ class Session:
         :param resource: The resource name to get object metadata for
         :return: list
         """
-        return self._make_metadata_request(
-            meta_id=resource, metadata_type="METADATA-OBJECT"
-        )
+        return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-OBJECT")
 
     def get_lookup_values(self, resource, lookup_name):
         """
@@ -232,9 +214,7 @@ class Session:
         :param lookup_name: The name of the the field to get lookup values for
         :return: list
         """
-        return self._make_metadata_request(
-            meta_id=resource + ":" + lookup_name, metadata_type="METADATA-LOOKUP_TYPE"
-        )
+        return self._make_metadata_request(meta_id=resource + ":" + lookup_name, metadata_type="METADATA-LOOKUP_TYPE")
 
     def _make_metadata_request(self, meta_id, metadata_type=None):
         """
@@ -280,9 +260,7 @@ class Session:
             ]:
                 self.metadata_responses.pop(key, None)
                 self.metadata_format = "STANDARD-XML"
-                return self._make_metadata_request(
-                    meta_id=meta_id, metadata_type=metadata_type
-                )
+                return self._make_metadata_request(meta_id=meta_id, metadata_type=metadata_type)
             raise RETSException(rets_er.reply_text, rets_er.reply_code)
 
     def get_preferred_object(self, resource, object_type, content_id, location=0):
@@ -303,9 +281,7 @@ class Session:
         )
         return next(collection)
 
-    def get_object(
-        self, resource, object_type, content_ids, object_ids="*", location=0
-    ):
+    def get_object(self, resource, object_type, content_ids, object_ids="*", location=0):
         """
         Get a list of Objects from a resource
         :param resource: The resource to get objects from
@@ -407,9 +383,7 @@ class Session:
         else:
             search_cursor = OneXSearchCursor()
 
-        response = self._request(
-            capability="Search", options={"query": parameters}, stream=True
-        )
+        response = self._request(capability="Search", options={"query": parameters}, stream=True)
         while True:
             try:
                 yield from search_cursor.generator(response=response)
@@ -418,11 +392,11 @@ class Session:
             except MaxrowException as max_exception:
                 # Recursive searching if automatically performing offsets for the  client
                 if auto_offset and limit > max_exception.rows_returned:
-                    parameters["Limit"] = limit - max_exception.rows_returned  # have not returned results to the desired limit
+                    parameters["Limit"] = (
+                        limit - max_exception.rows_returned
+                    )  # have not returned results to the desired limit
                     parameters["Offset"] = offset + max_exception.rows_returned  # adjust offset
-                    response = self._request(
-                        capability="Search", options={"query": parameters}, stream=True
-                    )
+                    response = self._request(capability="Search", options={"query": parameters}, stream=True)
                 else:
                     break  # Got max row exception but do not get more results
 
@@ -448,19 +422,14 @@ class Session:
             ua_digest = self._user_agent_digest_hash()
             options["headers"]["RETS-UA-Authorization"] = f"Digest {ua_digest!s}"
 
-        if (
-            self.use_post_method and capability != "Action"
-        ):  # Action Requests should always be GET
+        if self.use_post_method and capability != "Action":  # Action Requests should always be GET
             query = options.get("query")
             response = self.client.post(
                 url, data=query, headers=options["headers"], stream=stream, timeout=self.timeout
             )
         else:
             if "query" in options:
-                url += "?" + "&".join(
-                    f"{k!s}={quote(str(v))!s}"
-                    for k, v in options["query"].items()
-                )
+                url += "?" + "&".join(f"{k!s}={quote(str(v))!s}" for k, v in options["query"].items())
 
             response = self.client.get(url, headers=options["headers"], stream=stream, timeout=self.timeout)
 
@@ -478,8 +447,7 @@ class Session:
 
         elif response.status_code == 404 and self.use_post_method:
             raise HTTPException(
-                "Got a 404 when making a POST request. Try setting use_post_method=False when "
-                "initializing the Session."
+                "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session."
             )
 
         return response

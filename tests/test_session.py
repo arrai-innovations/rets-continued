@@ -62,9 +62,7 @@ class SessionTester(unittest.TestCase):
             self.assertTrue(self.session.logout())
 
     def test_resource_metadata(self):
-        with open(
-            "tests/rets_responses/COMPACT-DECODED/GetMetadata_resources.xml"
-        ) as f:
+        with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_resources.xml") as f:
             contents = "".join(f.readlines())
 
         with responses.RequestsMock() as resps:
@@ -128,9 +126,7 @@ class SessionTester(unittest.TestCase):
                 headers=multi_headers,
             )
 
-            objs1 = self.session.get_object(
-                resource="Property", object_type="Photo", content_ids="1"
-            )
+            objs1 = self.session.get_object(resource="Property", object_type="Photo", content_ids="1")
             self.assertEqual(len(list(objs1)), 9)
 
     def test_get_object_location1(self):
@@ -155,9 +151,7 @@ class SessionTester(unittest.TestCase):
                 headers=multi_headers,
             )
 
-            objs1 = self.session.get_object(
-                resource="Property", object_type="Photo", content_ids="1", location="1"
-            )
+            objs1 = self.session.get_object(resource="Property", object_type="Photo", content_ids="1", location="1")
             self.assertEqual(len(list(objs1)), 41)
 
     def test_preferred_object(self):
@@ -180,9 +174,7 @@ class SessionTester(unittest.TestCase):
                 headers=multi_headers,
             )
 
-            obj = self.session.get_preferred_object(
-                resource="Property", object_type="Photo", content_id=1
-            )
+            obj = self.session.get_preferred_object(resource="Property", object_type="Photo", content_id=1)
             self.assertTrue(obj)
 
             resps.add(
@@ -194,18 +186,14 @@ class SessionTester(unittest.TestCase):
 
             resource = {}
             resource["ResourceID"] = "Agent"
-            obj1 = self.session.get_preferred_object(
-                resource=resource, object_type="Photo", content_id=1
-            )
+            obj1 = self.session.get_preferred_object(resource=resource, object_type="Photo", content_id=1)
             self.assertTrue(obj1)
 
     def test_class_metadata(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_classes.xml") as f:
             contents = "".join(f.readlines())
 
-        with open(
-            "tests/rets_responses/COMPACT-DECODED/GetMetadata_classes_single.xml"
-        ) as f:
+        with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_classes_single.xml") as f:
             single_contents = "".join(f.readlines())
 
         with responses.RequestsMock() as resps:
@@ -224,9 +212,7 @@ class SessionTester(unittest.TestCase):
                 body=single_contents,
                 status=200,
             )
-            resource_classes_single = self.session.get_class_metadata(
-                resource="Property"
-            )
+            resource_classes_single = self.session.get_class_metadata(resource="Property")
             self.assertEqual(len(list(resource_classes_single)), 1)
 
     def test_search(self):
@@ -347,14 +333,10 @@ class SessionTester(unittest.TestCase):
             )
             self.session.get_table_metadata(resource="Property", resource_class="RES")
 
-        self.assertIn(
-            "METADATA-TABLE:Property:RES", list(self.session.metadata_responses.keys())
-        )
+        self.assertIn("METADATA-TABLE:Property:RES", list(self.session.metadata_responses.keys()))
 
         # Subsequent call without RequestMock should fail unless we get the saved response from metadata_responses
-        table = self.session.get_table_metadata(
-            resource="Property", resource_class="RES"
-        )
+        table = self.session.get_table_metadata(resource="Property", resource_class="RES")
         self.assertEqual(len(list(table)), 208)
 
     def test_table_metadata(self):
@@ -368,9 +350,7 @@ class SessionTester(unittest.TestCase):
                 body=contents,
                 status=200,
             )
-            table = self.session.get_table_metadata(
-                resource="Property", resource_class="RES"
-            )
+            table = self.session.get_table_metadata(resource="Property", resource_class="RES")
 
         self.assertEqual(len(list(table)), 208)
 
@@ -385,9 +365,7 @@ class SessionTester(unittest.TestCase):
                 body=contents,
                 status=200,
             )
-            lookup_values = self.session.get_lookup_values(
-                resource="Agent", lookup_name="Broker"
-            )
+            lookup_values = self.session.get_lookup_values(resource="Agent", lookup_name="Broker")
 
         self.assertEqual(len(list(lookup_values)), 61)
 
@@ -452,9 +430,7 @@ class SessionTester(unittest.TestCase):
             format_hold = self.session.metadata_format
             try:
                 self.session.metadata_format = "STANDARD-XML"
-                lookup_values = self.session.get_lookup_values(
-                    resource="Property", lookup_name="*"
-                )
+                lookup_values = self.session.get_lookup_values(resource="Property", lookup_name="*")
             finally:
                 self.session.metadata_format = format_hold
 
@@ -537,9 +513,7 @@ class Session15Tester(unittest.TestCase):
                 body=contents,
                 status=200,
             )
-            table = self.session.get_table_metadata(
-                resource="Property", resource_class="1"
-            )
+            table = self.session.get_table_metadata(resource="Property", resource_class="1")
 
         self.assertEqual(len(table), 162)
 
@@ -554,9 +528,7 @@ class Session15Tester(unittest.TestCase):
                 body=contents,
                 status=200,
             )
-            lookup_values = self.session.get_lookup_values(
-                resource="Property", lookup_name="1_2"
-            )
+            lookup_values = self.session.get_lookup_values(resource="Property", lookup_name="1_2")
 
         self.assertEqual(len(lookup_values), 9)
 
@@ -571,9 +543,7 @@ class Session15Tester(unittest.TestCase):
                 body=contents,
                 status=200,
             )
-            lookup_values = self.session.get_lookup_values(
-                resource="Property", lookup_name="mls_cooling"
-            )
+            lookup_values = self.session.get_lookup_values(resource="Property", lookup_name="mls_cooling")
 
         self.assertEqual(len(lookup_values), 4)
 

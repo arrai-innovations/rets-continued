@@ -32,9 +32,7 @@ class CompactMetadata(Base):
                 system_obj["system_id"] = str(base["SYSTEM"]["@SystemID"])
 
             if base.get("SYSTEM", {}).get("@SystemDescription"):
-                system_obj["system_description"] = str(
-                    base["SYSTEM"]["@SystemDescription"]
-                )
+                system_obj["system_description"] = str(base["SYSTEM"]["@SystemDescription"])
 
             if base.get("SYSTEM", {}).get("@TimeZoneOffset"):
                 system_obj["timezone_offset"] = str(base["SYSTEM"]["@TimeZoneOffset"])
@@ -48,19 +46,14 @@ class CompactMetadata(Base):
             yield system_obj
 
         elif "DATA" in base:
-            if not isinstance(
-                base["DATA"], list
-            ):  # xmltodict could take single entry XML lists and turn them into str
+            if not isinstance(base["DATA"], list):  # xmltodict could take single entry XML lists and turn them into str
                 base["DATA"] = [base["DATA"]]
 
             for data in base["DATA"]:
-                data_dict = self.data_columns_to_dict(
-                    columns_string=base.get("COLUMNS", ""), dict_string=data
-                )
+                data_dict = self.data_columns_to_dict(columns_string=base.get("COLUMNS", ""), dict_string=data)
                 data_dict.update(attributes)
 
                 yield data_dict
-
 
 
 class StandardXMLMetadata(Base):
@@ -97,9 +90,7 @@ class StandardXMLMetadata(Base):
         if metadata_type == "METADATA-SYSTEM":
             syst = base.get("System", base.get("SYSTEM"))
             if not syst:
-                raise ParseError(
-                    "Could not get the System key from a METADATA-SYSTEM request."
-                )
+                raise ParseError("Could not get the System key from a METADATA-SYSTEM request.")
 
             system_obj = {}
             if syst.get("SystemID"):

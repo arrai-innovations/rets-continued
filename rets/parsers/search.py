@@ -32,11 +32,7 @@ class OneXSearchCursor(Base):
         for _event, elem in events:
             # Analyze search record data
             if elem.tag == "DATA":
-                data_dict = {
-                    column: data
-                    for column, data in zip(columns, elem.text.split(delim))
-                    if column != ""
-                }
+                data_dict = {column: data for column, data in zip(columns, elem.text.split(delim)) if column != ""}
                 self.parsed_rows += 1  # Rows parsed with all requests
                 yield data_dict
 

@@ -28,9 +28,7 @@ class DMQLHelper:
         """Converts the filter dictionary into DMQL"""
 
         if not isinstance(filter_dict, (dict, collections.OrderedDict)):
-            raise TypeError(
-                f"Expected a dictionary type buy got {type(filter_dict)} instead."
-            )
+            raise TypeError(f"Expected a dictionary type buy got {type(filter_dict)} instead.")
 
         def is_date_time_type(val):
             """Returns True if the value is a datetime"""
@@ -69,8 +67,7 @@ class DMQLHelper:
             # If key not in allowed_operators, assume it is a field name with the and operation.
             if not all(op in allowed_operators for op in key_dict):
                 raise ValueError(
-                    "You have supplied an invalid operator. "
-                    f"Please provide one of the following {allowed_operators}"
+                    f"You have supplied an invalid operator. Please provide one of the following {allowed_operators}"
                 )
 
             # We can have a single operator key, or the combination of gte/lte
@@ -91,9 +88,7 @@ class DMQLHelper:
                         float(key_dict["$gte"])
                         float(key_dict["$lte"])
                     except ValueError:
-                        raise ValueError(
-                            "$gte and $lte expect numeric or datetime values"
-                        )
+                        raise ValueError("$gte and $lte expect numeric or datetime values")
                     string = "{:.2f}-{:.2f}".format(key_dict["$gte"], key_dict["$lte"])
 
             # Using a single operator key
@@ -105,9 +100,7 @@ class DMQLHelper:
                         try:
                             float(key_dict["$gte"])
                         except ValueError:
-                            raise ValueError(
-                                "$gte expects a numeric value or a datetime object"
-                            )
+                            raise ValueError("$gte expects a numeric value or a datetime object")
                         string = "{:.2f}+".format(key_dict["$gte"])
 
                 elif "$lte" in key_dict:
@@ -117,9 +110,7 @@ class DMQLHelper:
                         try:
                             float(key_dict["$lte"])
                         except ValueError:
-                            raise ValueError(
-                                "$lte expects a numeric value or a datetime object"
-                            )
+                            raise ValueError("$lte expects a numeric value or a datetime object")
                         string = "{:.2f}-".format(key_dict["$lte"])
 
                 elif "$in" in key_dict:
