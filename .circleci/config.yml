@@ -1,0 +1,120 @@
+version: 2.1
+orbs:
+    pytest: arrai/pytest@10.0.1
+workflows:
+    test:
+        jobs:
+            - pytest/pytest_fixed_ip:
+                  name: python_3.10
+                  executor: pytest/python310
+                  resource_class: small
+                  context: arrai-global
+                  filters:
+                      branches:
+                          only:
+                              - main
+            - pytest/pytest_fixed_ip:
+                  name: python_3.10-no-badge
+                  executor: pytest/python310
+                  resource_class: small
+                  context: arrai-global
+                  create_badges: false
+                  filters:
+                      tags:
+                          only: /.*/
+                      branches:
+                          ignore:
+                              - main
+            - pytest/pytest_fixed_ip:
+                  name: python_3.11
+                  executor: pytest/python311
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  filters:
+                      branches:
+                          only:
+                              - main
+            - pytest/pytest:
+                  name: python_3.11-no-badge
+                  executor: pytest/python311
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  create_badges: false
+                  filters:
+                      tags:
+                          only: /.*/
+                      branches:
+                          ignore:
+                              - main
+            - pytest/pytest_fixed_ip:
+                  name: python_3.12
+                  executor: pytest/python312
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  filters:
+                      branches:
+                          only:
+                              - main
+            - pytest/pytest:
+                  name: python_3.12-no-badge
+                  executor: pytest/python312
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  create_badges: false
+                  filters:
+                      tags:
+                          only: /.*/
+                      branches:
+                          ignore:
+                              - main
+            - pytest/pytest_fixed_ip:
+                  name: python_3.13
+                  executor: pytest/python313
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  filters:
+                      branches:
+                          only:
+                              - main
+            - pytest/pytest:
+                  name: python_3.13-no-badge
+                  executor: pytest/python313
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  create_badges: false
+                  filters:
+                      tags:
+                          only: /.*/
+                      branches:
+                          ignore:
+                              - main
+            - pytest/pytest_fixed_ip:
+                  name: python_3.14
+                  executor: pytest/python314
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  filters:
+                      branches:
+                          only:
+                              - main
+            - pytest/pytest:
+                  name: python_3.14-no-badge
+                  executor: pytest/python314
+                  resource_class: small
+                  context: arrai-global
+                  build_coverage: false
+                  create_badges: false
+                  filters:
+                      tags:
+                          only: /.*/
+                      branches:
+                          ignore:
+                              - main
+
