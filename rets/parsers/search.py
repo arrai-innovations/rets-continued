@@ -1,7 +1,6 @@
 import logging
+from io import BytesIO
 from xml.etree import ElementTree as ET
-
-from six import BytesIO
 
 from rets.exceptions import RETSException, MaxrowException
 from rets.parsers.base import Base

@@ -1,6 +1,5 @@
 import hashlib
 
-import six
 import xmltodict
 
 from rets.exceptions import ParseError, RETSException
@@ -58,9 +57,8 @@ class MultipleObjectParser(ObjectParser):
 
         response_string = response.content
 
-        if six.PY3:
-            # Python3 returns bytes, decode for string operations
-            response_string = response_string.decode("latin-1")
+        # Python3 returns bytes, decode for string operations
+        response_string = response_string.decode("latin-1")
 
         #  help bad responses be more multipart compliant
         whole_body = response_string.strip("\r\n")
@@ -114,11 +112,11 @@ class MultipleObjectParser(ObjectParser):
             if body:
                 obj = self._response_object_from_header(
                     obj_head_dict=part_header_dict,
-                    content=body.encode("latin-1") if six.PY3 else body,
+                    content=body.encode("latin-1"),
                 )
             else:
                 obj = self._response_object_from_header(obj_head_dict=part_header_dict)
-            
+
             yield obj
 
 

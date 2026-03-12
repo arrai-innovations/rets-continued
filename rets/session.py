@@ -3,7 +3,7 @@ import logging
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
-from six.moves.urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote
 
 
 from rets.exceptions import (

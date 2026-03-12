@@ -2,8 +2,6 @@ import collections
 import datetime
 import logging
 
-from six import string_types
-
 logger = logging.getLogger("rets")
 
 
@@ -129,7 +127,7 @@ class DMQLHelper(object):
                     if not isinstance(key_dict["$in"], list):
                         raise ValueError("$in expects a list of strings")
                     key_dict["$in"] = [evaluate_datetime(v) for v in key_dict["$in"]]
-                    if not all(isinstance(v, string_types) for v in key_dict["$in"]):
+                    if not all(isinstance(v, str) for v in key_dict["$in"]):
                         raise ValueError("$in expects a list of strings")
                     options = ",".join(key_dict["$in"])
                     string = "{}".format(options)
@@ -138,23 +136,23 @@ class DMQLHelper(object):
                     if not isinstance(key_dict["$nin"], list):
                         raise ValueError("$nin expects a list of strings")
                     key_dict["$nin"] = [evaluate_datetime(v) for v in key_dict["$nin"]]
-                    if not all(isinstance(v, string_types) for v in key_dict["$nin"]):
+                    if not all(isinstance(v, str) for v in key_dict["$nin"]):
                         raise ValueError("$nin expects a list of strings")
                     options = ",".join(key_dict["$nin"])
                     string = "~{}".format(options)
 
                 elif "$contains" in key_dict:
-                    if not isinstance(key_dict["$contains"], string_types):
+                    if not isinstance(key_dict["$contains"], str):
                         raise ValueError("$contains expects a string.")
                     string = "*{}*".format(key_dict["$contains"])
 
                 elif "$begins" in key_dict:
-                    if not isinstance(key_dict["$begins"], string_types):
+                    if not isinstance(key_dict["$begins"], str):
                         raise ValueError("$begins expects a string.")
                     string = "{}*".format(key_dict["$begins"])
 
                 elif "$ends" in key_dict:
-                    if not isinstance(key_dict["$ends"], string_types):
+                    if not isinstance(key_dict["$ends"], str):
                         raise ValueError("$ends expects a string.")
                     string = "*{}".format(key_dict["$ends"])
 

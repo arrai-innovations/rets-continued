@@ -2,7 +2,7 @@ import unittest
 
 import responses
 from tests.custom_parser_example import CreaStandardXParser
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from rets.exceptions import RETSException
 from rets.session import Session
