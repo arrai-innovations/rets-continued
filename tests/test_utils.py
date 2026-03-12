@@ -12,7 +12,7 @@ class SearchTester(unittest.TestCase):
     """
 
     def setUp(self):
-        super(SearchTester, self).setUp()
+        super().setUp()
         self.search_interpreter = DMQLHelper()
 
     def test_dmql(self):

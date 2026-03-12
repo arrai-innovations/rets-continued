@@ -10,7 +10,7 @@ from rets.session import Session
 
 class SessionTester(unittest.TestCase):
     def setUp(self):
-        super(SessionTester, self).setUp()
+        super().setUp()
         with open("tests/rets_responses/Login.xml") as f:
             contents = "".join(f.readlines())
 
@@ -463,7 +463,7 @@ class SessionTester(unittest.TestCase):
 
 class Session15Tester(unittest.TestCase):
     def setUp(self):
-        super(Session15Tester, self).setUp()
+        super().setUp()
         with open("tests/rets_responses/Login.xml") as f:
             contents = "".join(f.readlines())
 
