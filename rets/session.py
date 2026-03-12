@@ -498,11 +498,9 @@ class Session:
                 "to provide the version."
             )
         version_number = self.version.strip("RETS/")
-        user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode("utf-8")
+        user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode()
         a1 = hashlib.md5(user_str).hexdigest()  # noqa: S324
         session_id = self.session_id if self.session_id is not None else ""
-        digest_str = f"{a1!s}::{session_id!s}:{version_number!s}".encode(
-            "utf-8"
-        )
+        digest_str = f"{a1!s}::{session_id!s}:{version_number!s}".encode()
         digest = hashlib.md5(digest_str).hexdigest()  # noqa: S324
         return digest
