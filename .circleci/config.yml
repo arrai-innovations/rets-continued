@@ -24,9 +24,7 @@ jobs:
                         exit 1
                       fi
 
-                      uv sync
-
-                      PYTHON_VERSION=$(python -c "import rets; print(rets.__version__)")
+                      PYTHON_VERSION=$(uv run python -c "import rets; print(rets.__version__)")
 
                       if [ "$GIT_TAG" == "v$PYTHON_VERSION" ]; then
                         echo "Git tag matches the Python version: $GIT_TAG"
