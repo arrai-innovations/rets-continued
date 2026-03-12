@@ -5,7 +5,7 @@ from rets.exceptions import RETSException
 logger = logging.getLogger("rets")
 
 
-class Base(object):
+class Base:
     """Base Parser Object"""
 
     @staticmethod

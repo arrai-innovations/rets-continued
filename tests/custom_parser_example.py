@@ -2,7 +2,7 @@ from rets.exceptions import RETSException
 import xmltodict
 
 
-class CreaStandardXParser(object):
+class CreaStandardXParser:
     
     def generator(self, response):
         rets = xmltodict.parse(response.content)["RETS"]

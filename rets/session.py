@@ -25,7 +25,7 @@ from rets.utils.get_object import GetObject
 logger = logging.getLogger("rets")
 
 
-class Session(object):
+class Session:
     """The Session object that makes requests to the RETS Server"""
 
     allowed_auth = ["basic", "digest"]

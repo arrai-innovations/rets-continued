@@ -1,7 +1,7 @@
 import re
 
 
-class GetObject(object):
+class GetObject:
     """Handles various formatting for the GetObject metadata request"""
 
     def ids(self, content_ids, object_ids):

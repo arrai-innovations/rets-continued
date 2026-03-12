@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger("rets")
 
 
-class DMQLHelper(object):
+class DMQLHelper:
     """Ensures Data Mining Query Language is Valid"""
 
     @staticmethod
