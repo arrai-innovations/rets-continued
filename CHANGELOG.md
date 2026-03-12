@@ -1,5 +1,19 @@
 # RETS Changelog
 
+## 2.0.0
+
+Revive the upstream code and modernize for current Python releases.
+
+* Update copyright notices to include Arrai Innovations.
+* Remove Python 2.7 compatibility shims.
+* Convert the project settings, including build and testing, to pyproject.toml.
+* Switch from nose to pytest.
+* Address deprecation warnings in the tests.
+* Lint and format using ruff.
+* Switch from CI to CircleCI.
+* Update documentation.
+* Confirmed support for Python 3.10 through 3.14.
+
 ## 1.0.0
 * Major release. Search results return generator instead of list for lower-footprint processing. Possibly a breaking change depending upon usage.
 * Support Python 3.8
