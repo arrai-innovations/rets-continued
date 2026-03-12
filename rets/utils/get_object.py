@@ -19,7 +19,7 @@ class GetObject(object):
             value = [str(v) for v in value]
         else:
             str_value = str(value)
-            dash_matches = re.match(pattern="(\d+)\-(\d+)", string=str_value)
+            dash_matches = re.match(pattern=r"(\d+)\-(\d+)", string=str_value)
 
             if ":" in str_value or "," in str_value:
                 value = [v.strip() for v in str_value.replace(",", ":").split(":")]

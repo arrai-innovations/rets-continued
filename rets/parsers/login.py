@@ -49,7 +49,7 @@ class OneXLogin(Base):
             name, value = self.read_line(line)
             if name:
                 if name in self.valid_transactions or re.match(
-                    pattern="/^X\-/", string=name
+                    pattern=r"/^X\-/", string=name
                 ):
                     self.capabilities[name] = value
                 else:
