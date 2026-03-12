@@ -642,7 +642,7 @@ class LoginTester(unittest.TestCase):
             s.login()
 
             self.assertEqual(s.capabilities, expected_capabilities1)
-            self.assertEquals(s.version, "1.5")
+            self.assertEqual(s.version, "1.5")
 
             resps.add(
                 resps.POST,
@@ -679,7 +679,7 @@ class LoginTester(unittest.TestCase):
             s1.login()
 
             self.assertDictEqual(s1.capabilities, expected_capabilities2)
-            self.assertEquals(s.version, "1.7.2")
+            self.assertEqual(s.version, "1.7.2")
 
     def test_login_with_action(self):
         with open("tests/rets_responses/Login_with_Action.xml") as f:
