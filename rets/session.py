@@ -102,7 +102,7 @@ class Session(object):
 
         self.follow_redirects = follow_redirects
         self.use_post_method = use_post_method
-        self.add_capability(name=u"Login", uri=self.login_url)
+        self.add_capability(name="Login", uri=self.login_url)
 
     def __enter__(self):
         """Context Manager: Login when entering context"""

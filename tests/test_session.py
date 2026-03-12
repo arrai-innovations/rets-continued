@@ -595,21 +595,21 @@ class Session15Tester(unittest.TestCase):
 class LoginTester(unittest.TestCase):
     def test_login(self):
         expected_capabilities1 = {
-            u"GetMetadata": u"http://server.rets.com/rets/GetMetadata.ashx",
-            u"GetObject": u"http://server.rets.com/rets/GetObject.ashx",
-            u"Login": u"http://server.rets.com/rets/Login.ashx",
-            u"Logout": u"http://server.rets.com/rets/Logout.ashx",
-            u"PostObject": u"http://server.rets.com/rets/PostObject.ashx",
-            u"Search": u"http://server.rets.com/rets/Search.ashx",
-            u"Update": u"http://server.rets.com/rets/Update.ashx",
+            "GetMetadata": "http://server.rets.com/rets/GetMetadata.ashx",
+            "GetObject": "http://server.rets.com/rets/GetObject.ashx",
+            "Login": "http://server.rets.com/rets/Login.ashx",
+            "Logout": "http://server.rets.com/rets/Logout.ashx",
+            "PostObject": "http://server.rets.com/rets/PostObject.ashx",
+            "Search": "http://server.rets.com/rets/Search.ashx",
+            "Update": "http://server.rets.com/rets/Update.ashx",
         }
 
         expected_capabilities2 = {
-            u"GetMetadata": u"http://server.rets.com/rets/GetMetadata.ashx",
-            u"GetObject": u"http://server.rets.com/rets/GetObject.ashx",
-            u"Login": u"http://server.rets.com/rets/Login.ashx",
-            u"Logout": u"http://server.rets.com/rets/Logout.ashx",
-            u"Search": u"http://server.rets.com/rets/Search.ashx",
+            "GetMetadata": "http://server.rets.com/rets/GetMetadata.ashx",
+            "GetObject": "http://server.rets.com/rets/GetObject.ashx",
+            "Login": "http://server.rets.com/rets/Login.ashx",
+            "Logout": "http://server.rets.com/rets/Logout.ashx",
+            "Search": "http://server.rets.com/rets/Search.ashx",
         }
 
         with open("tests/rets_responses/Login.xml") as f:
@@ -702,7 +702,7 @@ class LoginTester(unittest.TestCase):
                 version="1.5",
             )
             s2.login()
-            self.assertIn(u"Action", list(s2.capabilities.keys()))
+            self.assertIn("Action", list(s2.capabilities.keys()))
 
     def test_port_added_to_actions(self):
         with open("tests/rets_responses/Login_relative_url.xml") as f:
