@@ -29,7 +29,7 @@ class OneXSearchCursor(Base):
 
         for event, elem in events:
             # Analyze search record data
-            if "DATA" == elem.tag:
+            if elem.tag == "DATA":
                 data_dict = {
                     column: data
                     for column, data in zip(columns, elem.text.split(delim))
@@ -39,7 +39,7 @@ class OneXSearchCursor(Base):
                 yield data_dict
 
             # Handle reply code
-            elif "RETS" == elem.tag:
+            elif elem.tag == "RETS":
                 reply_code = elem.get("ReplyCode")
                 reply_text = elem.get("ReplyText")
 
@@ -52,16 +52,16 @@ class OneXSearchCursor(Base):
                     raise RETSException(msg)
 
             # Analyze delimiter
-            elif "DELIMITER" == elem.tag:
+            elif elem.tag == "DELIMITER":
                 val = elem.get("value")
                 delim = chr(int(val))
 
             # Analyze columns
-            elif "COLUMNS" == elem.tag:
+            elif elem.tag == "COLUMNS":
                 columns = elem.text.split(delim)
 
             # handle max rows
-            elif "MAXROWS" == elem.tag:
+            elif elem.tag == "MAXROWS":
                 logger.debug("MAXROWS Tag reached in XML")
                 logger.debug("Received %(self.parsed_rows)s results from this search")
                 raise MaxrowException(self.parsed_rows)
