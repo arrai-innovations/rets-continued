@@ -246,7 +246,6 @@ class SessionTester(unittest.TestCase):
                 "http://server.rets.com/rets/Search.ashx",
                 body=search_contents,
                 status=200,
-                stream=True,
             )
             results_gen = self.session.search(
                 resource="Property",
@@ -261,7 +260,6 @@ class SessionTester(unittest.TestCase):
                 "http://server.rets.com/rets/Search.ashx",
                 body=search_contents,
                 status=200,
-                stream=True,
             )
 
             results1_gen = self.session.search(
@@ -279,7 +277,6 @@ class SessionTester(unittest.TestCase):
                 "http://server.rets.com/rets/Search.ashx",
                 body=custom_search_contents,
                 status=200,
-                stream=True,
             )
 
             self.session.search_parser = CreaStandardXParser()
@@ -299,7 +296,6 @@ class SessionTester(unittest.TestCase):
                 "http://server.rets.com/rets/Search.ashx",
                 body=invalid_contents,
                 status=200,
-                stream=True,
             )
             with self.assertRaises(RETSException):
                 r = self.session.search(
@@ -323,14 +319,12 @@ class SessionTester(unittest.TestCase):
                 "http://server.rets.com/rets/Search.ashx",
                 body=search1_contents,
                 status=200,
-                stream=True,
             )
             resps.add(
                 resps.POST,
                 "http://server.rets.com/rets/Search.ashx",
                 body=search2_contents,
                 status=200,
-                stream=True,
             )
             results_gen = self.session.search(
                 resource="Property",
