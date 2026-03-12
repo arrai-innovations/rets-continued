@@ -34,6 +34,7 @@ dev = [
     "mock >=5.2.0",
     "pytest >=9.0.2",
     "responses >=0.26",
+    "pre-commit >=4.5.1,<5",
     "ruff ==0.15.5",
 ]
 
@@ -46,7 +47,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
-line-ending = 'lf'
+line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
@@ -107,4 +108,4 @@ force-single-line = true
 lines-after-imports = 2
 
 [tool.setuptools.dynamic]
-version = { attr = 'rets.__version__' }
+version = { attr = "rets.__version__" }
