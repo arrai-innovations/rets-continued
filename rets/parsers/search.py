@@ -47,7 +47,7 @@ class OneXSearchCursor(Base):
                     # Generator should continue and return nothing
                     continue
                 elif reply_code != "0":
-                    msg = "RETS Error {0!s}: {1!s}".format(reply_code, reply_text)
+                    msg = f"RETS Error {reply_code!s}: {reply_text!s}"
                     raise RETSException(msg)
 
             # Analyze delimiter
@@ -62,9 +62,7 @@ class OneXSearchCursor(Base):
             # handle max rows
             elif "MAXROWS" == elem.tag:
                 logger.debug("MAXROWS Tag reached in XML")
-                logger.debug(
-                    "Received {0!s} results from this search".format(self.parsed_rows)
-                )
+                logger.debug("Received %(self.parsed_rows)s results from this search")
                 raise MaxrowException(self.parsed_rows)
 
             else:

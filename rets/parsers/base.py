@@ -51,11 +51,7 @@ class Base(object):
                 "ReplyText", "RETS did not supply a Reply Text."
             )
 
-            logger.debug(
-                "Received ReplyCode of {0!s} from the RETS Server: {0!s}".format(
-                    reply_code, reply_text
-                )
-            )
+            logger.debug("Received ReplyCode of {reply_code!s} from the RETS Server: %(reply_code)s")
             if reply_code != "0":
                 raise RETSException(reply_text, reply_code)
 
@@ -72,10 +68,6 @@ class Base(object):
         reply_code = attributes["ReplyCode"]
         reply_text = attributes.get("ReplyText", "RETS did not supply a Reply Text.")
 
-        logger.debug(
-            "Received ReplyCode of {0!s} from the RETS Server: {0!s}".format(
-                reply_code, reply_text
-            )
-        )
+        logger.debug("Received ReplyCode of %(reply_code)s from the RETS Server: %(reply_code)s")
         if reply_code != "0":
             raise RETSException(reply_text, reply_code)

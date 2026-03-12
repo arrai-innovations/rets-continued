@@ -19,7 +19,7 @@ class DMQLHelper(object):
 
         # automatically surround the given query with parentheses if it doesn't have them already
         if len(query) > 0 and query != "*" and query[0] != "(" and query[-1] != ")":
-            query = "({})".format(query)
+            query = f"({query})"
         return query
 
     @staticmethod
@@ -28,9 +28,7 @@ class DMQLHelper(object):
 
         if not isinstance(filter_dict, (dict, collections.OrderedDict)):
             raise TypeError(
-                "Expected a dictionary type buy got {} instead.".format(
-                    type(filter_dict)
-                )
+                f"Expected a dictionary type buy got {type(filter_dict)} instead."
             )
 
         def is_date_time_type(val):
@@ -41,7 +39,7 @@ class DMQLHelper(object):
             """Converts the datetime object into the RETS expected format"""
             date_format = "%Y-%m-%d"
             time_format = "%H:%M:%S"
-            datetime_format = "{}T{}".format(date_format, time_format)
+            datetime_format = f"{date_format}T{time_format}"
 
             if isinstance(val, datetime.datetime):
                 evaluated = val.strftime(datetime_format)
@@ -71,7 +69,7 @@ class DMQLHelper(object):
             if not all(op in allowed_operators for op in key_dict.keys()):
                 raise ValueError(
                     "You have supplied an invalid operator. "
-                    "Please provide one of the following {}".format(allowed_operators)
+                    f"Please provide one of the following {allowed_operators}"
                 )
 
             # We can have a single operator key, or the combination of gte/lte
@@ -130,7 +128,7 @@ class DMQLHelper(object):
                     if not all(isinstance(v, str) for v in key_dict["$in"]):
                         raise ValueError("$in expects a list of strings")
                     options = ",".join(key_dict["$in"])
-                    string = "{}".format(options)
+                    string = f"{options}"
 
                 elif "$nin" in key_dict:
                     if not isinstance(key_dict["$nin"], list):
@@ -139,7 +137,7 @@ class DMQLHelper(object):
                     if not all(isinstance(v, str) for v in key_dict["$nin"]):
                         raise ValueError("$nin expects a list of strings")
                     options = ",".join(key_dict["$nin"])
-                    string = "~{}".format(options)
+                    string = f"~{options}"
 
                 elif "$contains" in key_dict:
                     if not isinstance(key_dict["$contains"], str):
@@ -162,9 +160,7 @@ class DMQLHelper(object):
             else:
                 # Provided too many or too few operators
                 raise ValueError(
-                    "Please supply $gte and $lte for getting values between numbers or 1 of {}".format(
-                        allowed_operators
-                    )
+                    f"Please supply $gte and $lte for getting values between numbers or 1 of {allowed_operators}"
                 )
 
             return string
@@ -172,17 +168,17 @@ class DMQLHelper(object):
         dmql_search_filters = []
 
         for filt, value in filter_dict.items():
-            dmql_string = "({}=".format(filt)
+            dmql_string = f"({filt}="
             if isinstance(value, dict):
                 # Applying an operator. This will need to be recursive because of the or possibility
                 dmql_string += evaluate_operators(key_dict=value)
             else:
                 # Simle equals statement
-                dmql_string += "{}".format(evaluate_datetime(value))
+                dmql_string += f"{evaluate_datetime(value)}"
             dmql_string += ")"
             dmql_search_filters.append(dmql_string)
 
         search_string = ",".join(dmql_search_filters)
         # Converts the filter dictionary to dmqp string
-        logger.debug("Filter returned the following DMQL: {}".format(search_string))
+        logger.debug("Filter returned the following DMQL: %(search_string)s")
         return search_string

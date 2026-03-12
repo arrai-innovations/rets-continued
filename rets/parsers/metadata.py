@@ -77,7 +77,7 @@ class StandardXMLMetadata(Base):
                     key_cap = k
 
         if not key_cap:
-            msg = "Could not find {0!s} in the response XML".format(some_key)
+            msg = f"Could not find {some_key!s} in the response XML"
             raise ParseError(msg)
         return key_cap
 
@@ -121,7 +121,7 @@ class StandardXMLMetadata(Base):
         elif metadata_type == "METADATA-TABLE":
             key = "field"
         else:
-            msg = "Got an unknown metadata type of {0!s}".format(metadata_type)
+            msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
 
         if isinstance(base, list):

@@ -98,7 +98,7 @@ class Session(object):
         }
 
         if self.version:
-            self.client.headers["RETS-Version"] = "{0!s}".format(self.version)
+            self.client.headers["RETS-Version"] = f"{self.version!s}"
 
         self.follow_redirects = follow_redirects
         self.use_post_method = use_post_method
@@ -130,13 +130,11 @@ class Session(object):
                     "There is no login URL stored, so additional capabilities cannot be added."
                 )
                 raise ValueError(
-                    "Cannot automatically determine absolute path for {0!s} given.".format(
-                        uri
-                    )
+                    f"Cannot automatically determine absolute path for {uri!s} given."
                 )
 
             parts = urlparse(login_url)
-            port = ":{}".format(parts.port) if parts.port else ""
+            port = f":{parts.port}" if parts.port else ""
             uri = parts.scheme + "://" + parts.hostname + port + "/" + uri.lstrip("/")
 
         self.capabilities[name] = uri
@@ -247,7 +245,7 @@ class Session(object):
         :return: list
         """
         # If this metadata _request has already happened, returned the saved result.
-        key = "{0!s}:{1!s}".format(metadata_type, meta_id)
+        key = f"{metadata_type!s}:{meta_id!s}"
         if key in self.metadata_responses and self.cache_metadata:
             response = self.metadata_responses[key]
         else:
@@ -444,16 +442,12 @@ class Session(object):
         url = self.capabilities.get(capability)
 
         if not url:
-            msg = "{0!s} tried but no valid endpoints was found. Did you forget to Login?".format(
-                capability
-            )
+            msg = f"{capability!s} tried but no valid endpoints was found. Did you forget to Login?"
             raise NotLoggedIn(msg)
 
         if self.user_agent_password:
             ua_digest = self._user_agent_digest_hash()
-            options["headers"]["RETS-UA-Authorization"] = "Digest {0!s}".format(
-                ua_digest
-            )
+            options["headers"]["RETS-UA-Authorization"] = f"Digest {ua_digest!s}"
 
         if (
             self.use_post_method and capability != "Action"
@@ -465,7 +459,7 @@ class Session(object):
         else:
             if "query" in options:
                 url += "?" + "&".join(
-                    "{0!s}={1!s}".format(k, quote(str(v)))
+                    f"{k!s}={quote(str(v))!s}"
                     for k, v in options["query"].items()
                 )
 
@@ -504,12 +498,10 @@ class Session(object):
                 "to provide the version."
             )
         version_number = self.version.strip("RETS/")
-        user_str = "{0!s}:{1!s}".format(
-            self.user_agent, self.user_agent_password
-        ).encode("utf-8")
+        user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode("utf-8")
         a1 = hashlib.md5(user_str).hexdigest()
         session_id = self.session_id if self.session_id is not None else ""
-        digest_str = "{0!s}::{1!s}:{2!s}".format(a1, session_id, version_number).encode(
+        digest_str = f"{a1!s}::{session_id!s}:{version_number!s}".encode(
             "utf-8"
         )
         digest = hashlib.md5(digest_str).hexdigest()
