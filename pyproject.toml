@@ -1,0 +1,39 @@
+[project]
+name = "rets-continued"
+description = "RETS Client for Real Estate Data"
+readme = "README.md"
+license-files = ["LICENSE"]
+authors = [
+    { name = "REfindly", email = "info@refindly.com" },
+    { name = "Arrai Innovations", email = "support@arrai.com" }
+]
+maintainers = [
+    { name = "Arrai Innovations", email = "support@arrai.com" }
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "requests >=2.32.5,<3",
+    "xmltodict >=1.0.4,<2",
+]
+dynamic = ["version"]
+
+[dependency-groups]
+dev = [
+    "coverage[toml] >=7.13.4",
+    "mock >=5.2.0",
+    "pytest >=9.0.2",
+    "responses >=0.26",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = 'rets.__version__' }
