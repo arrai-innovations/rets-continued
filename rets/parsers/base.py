@@ -30,14 +30,14 @@ class Base:
         :return: dict
         """
         if delimiter:
-            return {
+            return {  # noqa: C416
                 k: v
                 for k, v in zip(
                     columns_string.split(delimiter), dict_string.split(delimiter)
                 )
             }
         else:
-            return {k: v for k, v in zip(columns_string.split(), dict_string.split())}
+            return {k: v for k, v in zip(columns_string.split(), dict_string.split())}  # noqa: C416
 
     def analyze_reply_code(self, xml_response_dict):
         """

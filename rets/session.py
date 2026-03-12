@@ -28,7 +28,7 @@ logger = logging.getLogger("rets")
 class Session:
     """The Session object that makes requests to the RETS Server"""
 
-    allowed_auth = ["basic", "digest"]
+    allowed_auth = ["basic", "digest"]  # noqa: RUF012
 
     def __init__(
         self,
@@ -261,7 +261,7 @@ class Session:
             )
             self.metadata_responses[key] = response
 
-        if self.metadata_format == "COMPACT-DECODED":
+        if self.metadata_format == "COMPACT-DECODED":  # noqa: SIM108
             parser = CompactMetadata()
         else:
             parser = StandardXMLMetadata()
@@ -330,7 +330,7 @@ class Session:
             },
         )
 
-        if "multipart" in response.headers.get("Content-Type"):
+        if "multipart" in response.headers.get("Content-Type"):  # noqa: SIM108
             parser = MultipleObjectParser()
         else:
             parser = SingleObjectParser()
@@ -402,7 +402,7 @@ class Session:
         if offset:
             parameters["Offset"] = offset
 
-        if self.search_parser:
+        if self.search_parser:  # noqa: SIM108
             search_cursor = self.search_parser
         else:
             search_cursor = OneXSearchCursor()
@@ -412,8 +412,7 @@ class Session:
         )
         while True:
             try:
-                for res in search_cursor.generator(response=response):
-                    yield res
+                yield from search_cursor.generator(response=response)
                 break  # Got to end of generator without raising Maxrow exception
 
             except MaxrowException as max_exception:

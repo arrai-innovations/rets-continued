@@ -16,5 +16,4 @@ class CreaStandardXParser:
             yield results
 
         else:
-            for r in results:
-                yield r
+            yield from results

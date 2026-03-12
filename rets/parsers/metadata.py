@@ -70,11 +70,11 @@ class StandardXMLMetadata(Base):
     def _identify_key(some_dict, some_key):
         # Get the version with the right capitalization from the dictionary
         key_cap = None
-        for k in some_dict.keys():
+        for k in some_dict.keys():  # noqa: SIM118
             if k.lower() == some_key:
                 key_cap = k
             # Some servers don't index lookup correctly for the given RETS version; let's address that here
-            elif some_key == "lookuptype":
+            elif some_key == "lookuptype":  # noqa: SIM102
                 if k.lower() == "lookup":
                     key_cap = k
 

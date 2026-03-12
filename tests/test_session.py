@@ -192,7 +192,7 @@ class SessionTester(unittest.TestCase):
                 status=200,
             )
 
-            resource = dict()
+            resource = {}
             resource["ResourceID"] = "Agent"
             obj1 = self.session.get_preferred_object(
                 resource=resource, object_type="Photo", content_id=1

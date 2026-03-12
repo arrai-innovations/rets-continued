@@ -29,7 +29,7 @@ class OneXSearchCursor(Base):
         response.raw.decode_content = True
         events = iterparse(BytesIO(response.content))
 
-        for event, elem in events:
+        for _event, elem in events:
             # Analyze search record data
             if elem.tag == "DATA":
                 data_dict = {

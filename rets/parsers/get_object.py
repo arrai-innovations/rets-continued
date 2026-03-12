@@ -10,7 +10,7 @@ from rets.parsers.base import Base
 class ObjectParser(Base):
     @staticmethod
     def _response_object_from_header(obj_head_dict, content=None):
-        obj = dict()
+        obj = {}
         obj["content_description"] = obj_head_dict.get("Content-Description")
         obj["content_sub_description"] = obj_head_dict.get("Content-Sub-Description")
         obj["content_id"] = obj_head_dict.get("Content-ID")
@@ -85,7 +85,7 @@ class MultipleObjectParser(ObjectParser):
 
         # go through each part of the multipart message
         for part in multi_parts:
-            clean_part = part.strip("\r\n\r\n")
+            clean_part = part.strip("\r\n\r\n")  # noqa: B005
             if "\r\n\r\n" in clean_part:
                 header, body = clean_part.split("\r\n\r\n", 1)
             else:

@@ -67,7 +67,7 @@ class DMQLHelper:
             ]
 
             # If key not in allowed_operators, assume it is a field name with the and operation.
-            if not all(op in allowed_operators for op in key_dict.keys()):
+            if not all(op in allowed_operators for op in key_dict):
                 raise ValueError(
                     "You have supplied an invalid operator. "
                     f"Please provide one of the following {allowed_operators}"
