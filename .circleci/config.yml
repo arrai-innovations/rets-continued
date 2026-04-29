@@ -1,9 +1,9 @@
 version: 2.1
 orbs:
     github: arrai/github@5.0.0
-    lintinator: arrai/lintinator@2.1.2
+    lintinator: arrai/lintinator@2.1.3
     pypi: arrai/pypi@3.1.0
-    pytest: arrai/pytest@10.0.1
+    pytest: arrai/pytest@10.0.2
 executors:
     python:
         docker:
