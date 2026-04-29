@@ -1,0 +1,18 @@
+version: 2
+updates:
+    - package-ecosystem: 'uv'
+      directory: '/'
+      schedule:
+          interval: 'weekly'
+          day: 'monday'
+          time: '08:00'
+          timezone: 'Canada/Mountain'
+      allow:
+          - dependency-name: '*'
+            dependency-type: 'all'
+      pull-request-branch-name:
+          separator: '-'
+      commit-message:
+          prefix: 'chore(security)'
+      # This restricts us to security updates only.
+      open-pull-requests-limit: 0
