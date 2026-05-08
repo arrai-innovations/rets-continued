@@ -192,7 +192,7 @@ workflows:
             - pypi/upload_release:
                   name: publish
                   cache_key: build-{{ arch }}-{{ .Environment.CIRCLE_WORKFLOW_ID }}
-                  context: arrai-private-package-publishing
+                  context: arrai-public-package-publishing
                   requires:
                       - build
                   filters:
