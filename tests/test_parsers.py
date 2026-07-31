@@ -1,5 +1,6 @@
 import unittest
 
+from rets.parsers.login import OneXLogin
 from rets.parsers.metadata import CompactMetadata
 
 
@@ -15,8 +16,9 @@ SYSTEM_RESPONSE = (
 class FakeResponse:
     """Stands in for the requests Response that the parsers read."""
 
-    def __init__(self, text):
+    def __init__(self, text, headers=None):
         self.text = text
+        self.headers = headers if headers is not None else {"Content-Type": "text/plain"}
 
 
 class CompactSystemMetadataTester(unittest.TestCase):
@@ -87,4 +89,46 @@ class CompactSystemMetadataTester(unittest.TestCase):
         self.assertEqual(
             self.parse('<SYSTEM SystemID="MLS-RETS"/><COMMENTS></COMMENTS>'),
             [{"system_id": "MLS-RETS", "version": "1.11.76001"}],
+        )
+
+
+class LoginParserTester(unittest.TestCase):
+    """Sorting the login response's key-value lines into capabilities and details"""
+
+    def parse(self, body):
+        parser = OneXLogin()
+        parser.parse(FakeResponse(body))
+        return parser
+
+    def test_extension_capabilities(self):
+        parser = self.parse(
+            "\r\n".join(
+                [
+                    "MemberName=John Doe",
+                    "MetadataVersion=1.11.75995",
+                    "Login=http://server.rets.com/rets/Login.ashx",
+                    "Search=http://server.rets.com/rets/Search.ashx",
+                    "X-SampleCapability=http://server.rets.com/rets/Sample.ashx",
+                ]
+            )
+        )
+
+        # An X- prefixed name is a vendor capability URL, not a detail about the account.
+        self.assertEqual(
+            parser.capabilities,
+            {
+                "Login": "http://server.rets.com/rets/Login.ashx",
+                "Search": "http://server.rets.com/rets/Search.ashx",
+                "X-SampleCapability": "http://server.rets.com/rets/Sample.ashx",
+            },
+        )
+        self.assertEqual(parser.details, {"MemberName": "John Doe", "MetadataVersion": "1.11.75995"})
+
+    def test_details_are_not_treated_as_capabilities(self):
+        parser = self.parse("\r\n".join(["Broker=BROKER1", "TimeoutSeconds=1800", "MaxRows=X-notacapability"]))
+
+        self.assertEqual(parser.capabilities, {})
+        self.assertEqual(
+            parser.details,
+            {"Broker": "BROKER1", "TimeoutSeconds": "1800", "MaxRows": "X-notacapability"},
         )

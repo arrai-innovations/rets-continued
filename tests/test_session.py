@@ -651,12 +651,15 @@ class LoginTester(unittest.TestCase):
             "Update": "http://server.rets.com/rets/Update.ashx",
         }
 
+        # This response's relative URLs include a vendor X- capability, which belongs here
+        # alongside the standard transactions rather than among the login details.
         expected_capabilities2 = {
             "GetMetadata": "http://server.rets.com/rets/GetMetadata.ashx",
             "GetObject": "http://server.rets.com/rets/GetObject.ashx",
             "Login": "http://server.rets.com/rets/Login.ashx",
             "Logout": "http://server.rets.com/rets/Logout.ashx",
             "Search": "http://server.rets.com/rets/Search.ashx",
+            "X-Selector": "http://server.rets.com/rets/selector",
         }
 
         with open("tests/rets_responses/Login.xml") as f:

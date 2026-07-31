@@ -1,5 +1,3 @@
-import re
-
 import xmltodict
 
 from rets.parsers.base import Base
@@ -48,7 +46,7 @@ class OneXLogin(Base):
 
             name, value = self.read_line(line)
             if name:
-                if name in self.valid_transactions or re.match(pattern=r"/^X\-/", string=name):
+                if name in self.valid_transactions or name.startswith("X-"):
                     self.capabilities[name] = value
                 else:
                     self.details[name] = value
