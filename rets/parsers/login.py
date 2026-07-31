@@ -32,7 +32,7 @@ class OneXLogin(Base):
         """
         self.headers = response.headers
 
-        if "xml" in self.headers.get("Content-Type"):
+        if "xml" in self.headers.get("Content-Type", ""):
             # Got an XML response, likely an error code.
             xml = xmltodict.parse(response.text)
             self.analyze_reply_code(xml_response_dict=xml)

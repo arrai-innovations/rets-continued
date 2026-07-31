@@ -32,7 +32,10 @@ class OneXSearchCursor(Base):
         for _event, elem in events:
             # Analyze search record data
             if elem.tag == "DATA":
-                data_dict = {column: data for column, data in zip(columns, elem.text.split(delim)) if column != ""}
+                # An empty row still counts, so that the offsets stay aligned with the rows the
+                # server actually sent.
+                row = elem.text or ""
+                data_dict = {column: data for column, data in zip(columns, row.split(delim)) if column != ""}
                 self.parsed_rows += 1  # Rows parsed with all requests
                 yield data_dict
 
@@ -52,11 +55,12 @@ class OneXSearchCursor(Base):
             # Analyze delimiter
             elif elem.tag == "DELIMITER":
                 val = elem.get("value")
-                delim = chr(int(val))
+                if val:  # keep the tab default when the server sends the tag without a value
+                    delim = chr(int(val))
 
             # Analyze columns
             elif elem.tag == "COLUMNS":
-                columns = elem.text.split(delim)
+                columns = (elem.text or "").split(delim)
 
             # handle max rows
             elif elem.tag == "MAXROWS":

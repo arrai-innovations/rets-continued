@@ -74,7 +74,7 @@ class MultipleObjectParser(ObjectParser):
         :param response: The response from the feed
         :return: list of SingleObjectParser
         """
-        if "xml" in response.headers.get("Content-Type"):
+        if "xml" in response.headers.get("Content-Type", ""):
             # Got an XML response, likely an error code.
             xml = xmltodict.parse(response.text)
             self.analyze_reply_code(xml_response_dict=xml)
@@ -92,7 +92,7 @@ class MultipleObjectParser(ObjectParser):
             part_header_dict = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in header.split("\r\n"))}
 
             # Some multipart requests respond with a text/XML part stating an error
-            if "xml" in part_header_dict.get("Content-Type"):
+            if "xml" in part_header_dict.get("Content-Type", ""):
                 # Got an XML response, likely an error code.
                 # Some rets servers give characters after the closing brace.
                 body = body[: body.index("/>") + 2] if "/>" in body else body
@@ -123,7 +123,7 @@ class SingleObjectParser(ObjectParser):
         :param response: The response from the RETS server
         :return: Object
         """
-        if "xml" in response.headers.get("Content-Type"):
+        if "xml" in response.headers.get("Content-Type", ""):
             # Got an XML response, likely an error code.
             xml = xmltodict.parse(response.text)
             self.analyze_reply_code(xml_response_dict=xml)

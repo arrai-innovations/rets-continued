@@ -131,6 +131,26 @@ class SessionTester(unittest.TestCase):
             objs1 = self.session.get_object(resource="Property", object_type="Photo", content_ids="1")
             self.assertEqual(len(list(objs1)), 9)
 
+    def test_get_object_without_content_type(self):
+        with open("tests/rets_responses/GetObject.byte", "rb") as f:
+            single = f.read()
+
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/GetObject.ashx",
+                body=single,
+                status=200,
+                content_type=None,
+                headers={"Content-ID": "2144466", "Object-ID": "0"},
+            )
+
+            # Choosing the parser must not depend on the server sending a Content-Type.
+            objs = list(self.session.get_object(resource="Property", object_type="Photo", content_ids="1"))
+
+        self.assertEqual(len(objs), 1)
+        self.assertEqual(objs[0]["content_md5"], "396106a133a23e10f6926a82d219edbc")
+
     def test_get_object_location1(self):
         with open("tests/rets_responses/GetObject_multipart_Location1.byte", "rb") as f:
             multiple = f.read()

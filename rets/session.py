@@ -308,7 +308,7 @@ class Session:
             },
         )
 
-        if "multipart" in response.headers.get("Content-Type"):  # noqa: SIM108
+        if "multipart" in response.headers.get("Content-Type", ""):
             parser = MultipleObjectParser()
         else:
             parser = SingleObjectParser()

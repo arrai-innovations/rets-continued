@@ -1,7 +1,10 @@
 import unittest
 
+from rets.parsers.get_object import MultipleObjectParser
+from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
 from rets.parsers.metadata import CompactMetadata
+from rets.parsers.search import OneXSearchCursor
 
 
 SYSTEM_RESPONSE = (
@@ -13,12 +16,20 @@ SYSTEM_RESPONSE = (
 )
 
 
+class FakeRaw:
+    """The urllib3 stream that the search cursor sets decode_content on."""
+
+    decode_content = False
+
+
 class FakeResponse:
     """Stands in for the requests Response that the parsers read."""
 
-    def __init__(self, text, headers=None):
+    def __init__(self, text, headers=None, content=None):
         self.text = text
         self.headers = headers if headers is not None else {"Content-Type": "text/plain"}
+        self.content = content if content is not None else text.encode("latin-1")
+        self.raw = FakeRaw()
 
 
 class CompactSystemMetadataTester(unittest.TestCase):
@@ -132,3 +143,89 @@ class LoginParserTester(unittest.TestCase):
             parser.details,
             {"Broker": "BROKER1", "TimeoutSeconds": "1800", "MaxRows": "X-notacapability"},
         )
+
+    def test_response_without_content_type(self):
+        parser = OneXLogin()
+        parser.parse(FakeResponse("Login=http://server.rets.com/rets/Login.ashx", headers={}))
+
+        self.assertEqual(parser.capabilities, {"Login": "http://server.rets.com/rets/Login.ashx"})
+
+
+class SearchCursorTester(unittest.TestCase):
+    """Search result parsing, for the sparse elements servers include in real responses"""
+
+    def parse(self, body):
+        return list(OneXSearchCursor().generator(response=FakeResponse(body)))
+
+    def test_rows(self):
+        rows = self.parse(
+            '<RETS ReplyCode="0">'
+            '<DELIMITER value="09"/>'
+            "<COLUMNS>\tListingID\tListPrice\t</COLUMNS>"
+            "<DATA>\t123\t200000\t</DATA>"
+            "<DATA>\t456\t250000\t</DATA>"
+            "</RETS>"
+        )
+        self.assertEqual(
+            rows,
+            [
+                {"ListingID": "123", "ListPrice": "200000"},
+                {"ListingID": "456", "ListPrice": "250000"},
+            ],
+        )
+
+    def test_empty_data_element(self):
+        # A row the server sent with no content still has to be yielded, or the auto-offset
+        # would resume before it and fetch it a second time.
+        rows = self.parse(
+            '<RETS ReplyCode="0">'
+            '<DELIMITER value="09"/>'
+            "<COLUMNS>\tListingID\tListPrice\t</COLUMNS>"
+            "<DATA>\t123\t200000\t</DATA>"
+            "<DATA/>"
+            "</RETS>"
+        )
+        self.assertEqual(rows, [{"ListingID": "123", "ListPrice": "200000"}, {}])
+
+    def test_delimiter_without_a_value(self):
+        # Falls back to the tab default rather than blowing up on int(None).
+        rows = self.parse('<RETS ReplyCode="0"><DELIMITER/><COLUMNS>\tListingID\t</COLUMNS><DATA>\t123\t</DATA></RETS>')
+        self.assertEqual(rows, [{"ListingID": "123"}])
+
+    def test_missing_delimiter_element(self):
+        rows = self.parse('<RETS ReplyCode="0"><COLUMNS>\tListingID\t</COLUMNS><DATA>\t123\t</DATA></RETS>')
+        self.assertEqual(rows, [{"ListingID": "123"}])
+
+    def test_empty_columns_element(self):
+        rows = self.parse('<RETS ReplyCode="0"><COLUMNS/><DATA>\t123\t</DATA></RETS>')
+        self.assertEqual(rows, [{}])
+
+
+class ObjectContentTypeTester(unittest.TestCase):
+    """Object responses that arrive with no Content-Type header at all"""
+
+    def test_single_object_without_content_type(self):
+        response = FakeResponse("imagedata", headers={"Content-ID": "1", "Object-ID": "1"})
+        objs = list(SingleObjectParser().parse_image_response(response))
+
+        self.assertEqual(len(objs), 1)
+        self.assertEqual(objs[0]["content_id"], "1")
+        self.assertEqual(objs[0]["content"], b"imagedata")
+
+    def test_multipart_part_without_content_type(self):
+        body = "\r\n".join(
+            [
+                "--BOUND",
+                "Content-ID: 1",
+                "Object-ID: 1",
+                "",
+                "imagedata",
+                "--BOUND--",
+            ]
+        )
+        response = FakeResponse(body, headers={"Content-Type": 'multipart/parallel; boundary="BOUND"'})
+        objs = list(MultipleObjectParser().parse_image_response(response))
+
+        self.assertEqual(len(objs), 1)
+        self.assertEqual(objs[0]["content_id"], "1")
+        self.assertEqual(objs[0]["content"], b"imagedata")
