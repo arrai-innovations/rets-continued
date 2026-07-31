@@ -212,7 +212,7 @@ class Session:
         Get possible lookup values for a given field
         :param resource: The name of the resource
         :param lookup_name: The name of the the field to get lookup values for
-        :return: list
+        :return: list, or a dict of lists keyed by lookup name if a wildcard lookup_name was given
         """
         return self._make_metadata_request(meta_id=resource + ":" + lookup_name, metadata_type="METADATA-LOOKUP_TYPE")
 
@@ -222,7 +222,7 @@ class Session:
         then we change to the 'STANDARD-XML' format and try again.
         :param meta_id: The name of the resource, class, or lookup to get metadata for
         :param metadata_type: The RETS metadata type
-        :return: list
+        :return: list, or a dict of lists keyed by name when the server answers a wildcard request
         """
         # If this metadata _request has already happened, returned the saved result.
         key = f"{metadata_type!s}:{meta_id!s}"
@@ -248,7 +248,8 @@ class Session:
 
         try:
             # Process generator here to raise RETSException if it happens
-            return list(parser.parse(response=response, metadata_type=metadata_type))
+            parsed = parser.parse(response=response, metadata_type=metadata_type)
+            return parsed if isinstance(parsed, dict) else list(parsed)
         except RETSException as rets_er:
             # Remove response from cache
             self.metadata_responses.pop(key, None)

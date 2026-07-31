@@ -458,7 +458,21 @@ class SessionTester(unittest.TestCase):
             finally:
                 self.session.metadata_format = format_hold
 
+        # A wildcard request maps each lookup name to its own list of values, rather than
+        # collapsing down to just the names.
+        self.assertIsInstance(lookup_values, dict)
         self.assertEqual(len(lookup_values), 40)
+        self.assertIn("City", lookup_values)
+        self.assertEqual(len(lookup_values["City"]), 298)
+        self.assertEqual(
+            lookup_values["City"][0],
+            {
+                "MetadataEntryID": "5569",
+                "LongValue": "Aboujagane",
+                "ShortValue": "ABJGN",
+                "Value": "ABJGN",
+            },
+        )
 
 
 class Session15Tester(unittest.TestCase):
