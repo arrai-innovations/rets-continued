@@ -113,5 +113,5 @@ lines-after-imports = 2
 version = { attr = "rets.__version__" }
 
 [tool.uv]
-default-groups = []
+default-groups = ["dev"]
 exclude-newer = "1d"
