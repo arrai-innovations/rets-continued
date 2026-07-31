@@ -60,7 +60,8 @@ class Session:
         :param metadata_format: COMPACT_DECODED or STANDARD_XML. The client will attempt to set this automatically
         based on response codes from the RETS server.
         :param session_id_cookie_name: The session cookie name returned by the RETS server. Default is RETS-Session-ID
-        :param search_parser: A search parser object that implements a method named generator
+        :param search_parser: A search parser object that implements a method named generator. The same
+        object is handed to every search this session makes, so it should not carry state between them.
         """
         self.client = requests.Session()
         self.login_url = login_url
@@ -385,18 +386,22 @@ class Session:
             search_cursor = OneXSearchCursor()
 
         response = self._request(capability="Search", options={"query": parameters}, stream=True)
+        # Count the rows here rather than trusting the cursor's own tally. A search_parser
+        # given to the Session is reused by every search, so its count carries over from
+        # earlier searches and would offset this one past results it never returned.
+        rows_returned = 0  # rows yielded so far, across every request this search has made
         while True:
             try:
-                yield from search_cursor.generator(response=response)
+                for row in search_cursor.generator(response=response):
+                    rows_returned += 1
+                    yield row
                 break  # Got to end of generator without raising Maxrow exception
 
-            except MaxrowException as max_exception:
+            except MaxrowException:
                 # Recursive searching if automatically performing offsets for the  client
-                if auto_offset and limit > max_exception.rows_returned:
-                    parameters["Limit"] = (
-                        limit - max_exception.rows_returned
-                    )  # have not returned results to the desired limit
-                    parameters["Offset"] = offset + max_exception.rows_returned  # adjust offset
+                if auto_offset and limit > rows_returned:
+                    parameters["Limit"] = limit - rows_returned  # have not returned results to the desired limit
+                    parameters["Offset"] = offset + rows_returned  # adjust offset
                     response = self._request(capability="Search", options={"query": parameters}, stream=True)
                 else:
                     break  # Got max row exception but do not get more results

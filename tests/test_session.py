@@ -1,9 +1,11 @@
 import unittest
+from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 import responses
 
 from rets.exceptions import RETSException
+from rets.parsers.search import OneXSearchCursor
 from rets.session import Session
 from tests.custom_parser_example import CreaStandardXParser
 
@@ -319,6 +321,43 @@ class SessionTester(unittest.TestCase):
             )
             results = list(results_gen)
             self.assertEqual(len(results), 6)
+
+    def test_auto_offset_with_shared_search_parser(self):
+        """A search_parser is reused by every search, so its state must not shift later offsets."""
+        with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
+            search1_contents = "".join(f.readlines())
+
+        with open("tests/rets_responses/COMPACT-DECODED/Search_2of2.xml") as f:
+            search2_contents = "".join(f.readlines())
+
+        self.session.search_parser = OneXSearchCursor()
+        try:
+            with responses.RequestsMock() as resps:
+                for contents in (search1_contents, search2_contents) * 2:
+                    resps.add(
+                        resps.POST,
+                        "http://server.rets.com/rets/Search.ashx",
+                        body=contents,
+                        status=200,
+                    )
+
+                for _ in range(2):
+                    results = list(
+                        self.session.search(
+                            resource="Property",
+                            resource_class="RES",
+                            search_filter={"ListingPrice": 200000},
+                        )
+                    )
+                    self.assertEqual(len(results), 6)
+
+                sent = [parse_qs(call.request.body) for call in resps.calls]
+        finally:
+            self.session.search_parser = None
+
+        # Each search starts unoffset and resumes from row 3, where the first response hit MAXROWS.
+        self.assertEqual([q.get("Offset") for q in sent], [None, ["3"], None, ["3"]])
+        self.assertEqual([q["Limit"] for q in sent], [["9999999"], ["9999996"], ["9999999"], ["9999996"]])
 
     def test_cache_metadata(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_table.xml") as f:
