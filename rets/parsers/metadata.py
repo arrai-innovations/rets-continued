@@ -36,20 +36,24 @@ class CompactMetadata(Base):
         """
         attributes = self.get_attributes(base)
 
-        if base.get("System") or base.get("SYSTEM"):
+        system = base.get("SYSTEM", base.get("System"))
+        if system:
             system_obj = {}
 
-            if base.get("SYSTEM", {}).get("@SystemDescription"):
-                system_obj["system_id"] = str(base["SYSTEM"]["@SystemID"])
+            if system.get("@SystemID"):
+                system_obj["system_id"] = str(system["@SystemID"])
 
-            if base.get("SYSTEM", {}).get("@SystemDescription"):
-                system_obj["system_description"] = str(base["SYSTEM"]["@SystemDescription"])
+            if system.get("@SystemDescription"):
+                system_obj["system_description"] = str(system["@SystemDescription"])
 
-            if base.get("SYSTEM", {}).get("@TimeZoneOffset"):
-                system_obj["timezone_offset"] = str(base["SYSTEM"]["@TimeZoneOffset"])
+            if system.get("@TimeZoneOffset"):
+                system_obj["timezone_offset"] = str(system["@TimeZoneOffset"])
 
-            if base.get("SYSTEM", {}).get("Comments"):
-                system_obj["comments"] = base["SYSTEM"]["Comments"]
+            # The comments belong in a COMMENTS element alongside SYSTEM, but some servers
+            # nest them inside it instead.
+            comments = base.get("COMMENTS") or base.get("Comments") or system.get("Comments")
+            if comments:
+                system_obj["comments"] = comments
 
             if base.get("@Version"):
                 system_obj["version"] = base["@Version"]
