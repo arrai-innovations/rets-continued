@@ -460,24 +460,42 @@ class Session:
 
             response = self.client.get(url, headers=options["headers"], stream=stream, timeout=self.timeout)
 
-        if response.status_code in [400, 401]:
-            if capability == "Login":
-                if self.http_authentication == "digest":
-                    # Fall back to base64 encoding auth method and try again
-                    self.http_authentication = "basic"
-                    self.client.auth = HTTPBasicAuth(self.username, self.password)
-                    return self._request(capability, options, stream)
-                m = "Could not log into the RETS server with the provided credentials in basic or digest."
-            else:
-                m = "The RETS server returned a 401 status code. You must be logged in to make this request."
-            raise NotLoggedIn(m)
+        # Both codes count as an auth challenge on Login, since a server that cannot handle the
+        # digest attempt may reject it with a 400 rather than a 401.
+        if capability == "Login" and response.status_code in [400, 401] and self.http_authentication == "digest":
+            # Fall back to base64 encoding auth method and try again
+            self.http_authentication = "basic"
+            self.client.auth = HTTPBasicAuth(self.username, self.password)
+            return self._request(capability, options, stream)
 
-        elif response.status_code == 404 and self.use_post_method:
+        self._raise_for_status(response=response, capability=capability)
+
+        return response
+
+    def _raise_for_status(self, response, capability):
+        """
+        Turn a status code the server refused the request with into the most specific exception
+        :param response: The response from the RETS server
+        :param capability: The name of the capability that was requested
+        :return: None
+        """
+        if capability == "Login" and response.status_code in [400, 401]:
+            # Both authentication methods have been tried by the time we get here.
+            raise NotLoggedIn("Could not log into the RETS server with the provided credentials in basic or digest.")
+
+        if response.status_code == 401:
+            raise NotLoggedIn("The RETS server returned a 401 status code. You must be logged in to make this request.")
+
+        if response.status_code == 404 and self.use_post_method:
             raise HTTPException(
                 "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session."
             )
 
-        return response
+        if not response.ok:
+            # Anything else the server refused. A RETS server reports its own errors as a
+            # non-zero ReplyCode with a 200, so a failing status is about the HTTP request.
+            msg = f"The RETS server returned a {response.status_code!s} status code for the {capability!s} request."
+            raise HTTPException(msg)
 
     def _user_agent_digest_hash(self):
         """

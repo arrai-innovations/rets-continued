@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 
 import responses
 
+from rets.exceptions import HTTPException
+from rets.exceptions import NotLoggedIn
 from rets.exceptions import RETSException
 from rets.parsers.search import OneXSearchCursor
 from rets.session import Session
@@ -592,6 +594,128 @@ class SessionTester(unittest.TestCase):
                 "Value": "ABJGN",
             },
         )
+
+
+class StatusCodeTester(unittest.TestCase):
+    """How the HTTP status the server answered with is reported to the caller"""
+
+    def setUp(self):
+        super().setUp()
+        with open("tests/rets_responses/Login.xml") as f:
+            contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Login.ashx",
+                body=contents,
+                status=200,
+            )
+            self.session = Session(
+                login_url="http://server.rets.com/rets/Login.ashx",
+                username="retsuser",
+                version="RETS/1.7.2",
+            )
+            self.session.login()
+
+    def search(self):
+        return list(
+            self.session.search(
+                resource="Property",
+                resource_class="RES",
+                dmql_query="(ListingPrice=200000)",
+            )
+        )
+
+    def test_400_is_not_reported_as_an_auth_failure(self):
+        # A rejected query is an HTTP problem, not a sign the session is logged out.
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body="Bad Request", status=400)
+
+            with self.assertRaises(HTTPException) as caught:
+                self.search()
+
+        self.assertIn("400", str(caught.exception))
+        self.assertNotIsInstance(caught.exception, NotLoggedIn)
+
+    def test_401_still_reports_an_auth_failure(self):
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body="Unauthorized", status=401)
+
+            with self.assertRaises(NotLoggedIn):
+                self.search()
+
+    def test_server_error(self):
+        # Previously fell through to the XML parser and failed there instead.
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body="Server Error", status=500)
+
+            with self.assertRaises(HTTPException) as caught:
+                self.search()
+
+        self.assertIn("500", str(caught.exception))
+
+    def test_404_on_post_advises_the_get_method(self):
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body="Not Found", status=404)
+
+            with self.assertRaises(HTTPException) as caught:
+                self.search()
+
+        self.assertIn("use_post_method=False", str(caught.exception))
+
+
+class LoginAuthFallbackTester(unittest.TestCase):
+    """Falling back from digest to basic authentication when the server rejects digest"""
+
+    def login_against(self, status):
+        with open("tests/rets_responses/Login.xml") as f:
+            contents = "".join(f.readlines())
+
+        session = Session(
+            login_url="http://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+        )
+        self.assertEqual(session.http_authentication, "digest")
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=status)
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=contents, status=200)
+            session.login()
+
+        return session
+
+    def test_falls_back_to_basic_on_401(self):
+        session = self.login_against(401)
+
+        self.assertEqual(session.http_authentication, "basic")
+        self.assertIn("Search", session.capabilities)
+
+    def test_falls_back_to_basic_on_400(self):
+        # Some servers reject a digest attempt they cannot handle with a 400.
+        session = self.login_against(400)
+
+        self.assertEqual(session.http_authentication, "basic")
+        self.assertIn("Search", session.capabilities)
+
+    def test_gives_up_when_basic_is_also_rejected(self):
+        session = Session(
+            login_url="http://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=401)
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=401)
+
+            with self.assertRaises(NotLoggedIn) as caught:
+                session.login()
+
+        self.assertIn("basic or digest", str(caught.exception))
 
 
 class Session15Tester(unittest.TestCase):
