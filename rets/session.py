@@ -316,7 +316,7 @@ class Session:
         collection = parser.parse_image_response(response)
         return collection
 
-    def search(  # noqa: C901
+    def search(
         self,
         resource,
         resource_class,
@@ -385,6 +385,27 @@ class Session:
         else:
             search_cursor = OneXSearchCursor()
 
+        # Everything above validates the arguments, so it has to run when search() is called.
+        # Were this method itself a generator, none of it would happen until the caller began
+        # iterating, and a bad query would look like a successful call. Requesting stays lazy.
+        return self._search_generator(
+            parameters=parameters,
+            search_cursor=search_cursor,
+            limit=limit,
+            offset=offset,
+            auto_offset=auto_offset,
+        )
+
+    def _search_generator(self, parameters, search_cursor, limit, offset, auto_offset):
+        """
+        Request search results and yield each row, following offsets when the server truncates
+        :param parameters: The query parameters assembled by search()
+        :param search_cursor: The parser turning each response into row dicts
+        :param limit: The number of rows the caller asked for
+        :param offset: The offset the search started from
+        :param auto_offset: Should the search be allowed to trigger subsequent searches.
+        :return: generator of dicts
+        """
         response = self._request(capability="Search", options={"query": parameters}, stream=True)
         # Count the rows here rather than trusting the cursor's own tally. A search_parser
         # given to the Session is reused by every search, so its count carries over from

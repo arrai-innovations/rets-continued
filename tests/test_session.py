@@ -314,6 +314,66 @@ class SessionTester(unittest.TestCase):
                 )
                 print(list(r))  # noqa: T201
 
+    def test_search_validates_arguments_when_called(self):
+        """Bad arguments must raise from the search() call, not wait for the caller to iterate."""
+        # Neither a filter nor a query.
+        with self.assertRaises(ValueError):
+            self.session.search(resource="Property", resource_class="RES")
+
+        # Both a filter and a query.
+        with self.assertRaises(ValueError):
+            self.session.search(
+                resource="Property",
+                resource_class="RES",
+                search_filter={"ListingPrice": 200000},
+                dmql_query="ListingPrice=200000",
+            )
+
+        # A dict where a DMQL string belongs.
+        with self.assertRaises(ValueError):
+            self.session.search(
+                resource="Property",
+                resource_class="RES",
+                dmql_query={"ListingPrice": 200000},
+            )
+
+        # A string where a filter dict belongs.
+        with self.assertRaises(TypeError):
+            self.session.search(
+                resource="Property",
+                resource_class="RES",
+                search_filter="ListingPrice=200000",
+            )
+
+        # An unsupported filter operator.
+        with self.assertRaises(ValueError):
+            self.session.search(
+                resource="Property",
+                resource_class="RES",
+                search_filter={"Status": {"$not": "unsupported"}},
+            )
+
+    def test_search_defers_the_request_until_iterated(self):
+        """Only validation is eager; no request is made until the generator is consumed."""
+        with open("tests/rets_responses/COMPACT-DECODED/Search.xml") as f:
+            search_contents = "".join(f.readlines())
+
+        # Built outside the mock, so an eager request here would fail to find a registered URL.
+        results = self.session.search(
+            resource="Property",
+            resource_class="RES",
+            search_filter={"ListingPrice": 200000},
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                body=search_contents,
+                status=200,
+            )
+            self.assertEqual(len(list(results)), 3)
+
     def test_auto_offset(self):
         with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
             search1_contents = "".join(f.readlines())
