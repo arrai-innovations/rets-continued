@@ -111,3 +111,7 @@ lines-after-imports = 2
 
 [tool.setuptools.dynamic]
 version = { attr = "rets.__version__" }
+
+[tool.uv]
+default-groups = ["dev"]
+exclude-newer = "1d"
