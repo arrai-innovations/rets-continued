@@ -111,7 +111,16 @@ class Session:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context Manager: Logout when leaving context"""
-        self.logout()
+        if exc_type is None:
+            self.logout()
+            return
+
+        try:
+            self.logout()
+        except Exception:
+            # The block already failed, so logging out is only tidying up. Its own failure must not
+            # replace the error that ended the block, which is the one the caller needs to see.
+            logger.warning("Could not log out of the RETS session after an error.", exc_info=True)
 
     def add_capability(self, name, uri):
         """

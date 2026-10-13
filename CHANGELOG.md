@@ -21,6 +21,7 @@
 * Declare the setuptools build backend in pyproject.toml, so builders no longer fall back to the legacy backend, and uv installs the project into its environment rather than treating it as a virtual project.
 * Declare the MIT license in the package metadata.
 * Reword the `MissingVersion` message, which was missing spaces and blamed the server: the version must be passed to the Session for user agent authentication, since the login request already needs it.
+* When a `with Session(...)` block raises and logging out then fails as well, raise the block's error rather than the logout's, and log the logout failure as a warning.
 
 ## 2.0.1
 

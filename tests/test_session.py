@@ -838,6 +838,64 @@ class StatusCodeTester(unittest.TestCase):
         self.assertIn("http://server.rets.com/rets/Search2.ashx", str(caught.exception))
 
 
+class ContextManagerTester(unittest.TestCase):
+    """Logging out when leaving a with block, without hiding why the block ended"""
+
+    LOGOUT_URL = "http://server.rets.com/rets/Logout.ashx"
+
+    def run_block(self, logout_status, body_error=None):
+        """Run a with block, returning the error it ended with and the URLs it requested"""
+        with open("tests/rets_responses/Login.xml") as f:
+            contents = "".join(f.readlines())
+
+        # The error is caught inside the mock, since responses skips its own checks while one propagates.
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=contents, status=200)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=logout_status)
+
+            error = None
+            try:
+                with Session(login_url="http://server.rets.com/rets/Login.ashx", username="retsuser", version="1.7.2"):
+                    if body_error:
+                        raise body_error
+            except Exception as e:
+                error = e
+
+            urls = [call.request.url for call in resps.calls]
+
+        return error, urls
+
+    def test_logs_out(self):
+        error, urls = self.run_block(logout_status=200)
+
+        self.assertIsNone(error)
+        self.assertEqual(urls[-1], self.LOGOUT_URL)
+
+    def test_logout_failure_is_raised_when_the_block_succeeds(self):
+        error, _urls = self.run_block(logout_status=500)
+
+        self.assertIsInstance(error, HTTPException)
+
+    def test_logout_failure_does_not_hide_the_blocks_error(self):
+        body_error = ValueError("the real error")
+
+        with self.assertLogs("rets", level="WARNING") as logs:
+            error, urls = self.run_block(logout_status=500, body_error=body_error)
+
+        self.assertIs(error, body_error)
+        self.assertEqual(urls[-1], self.LOGOUT_URL)
+        # The logout failure is still reported, with its traceback.
+        self.assertIn("HTTPException", logs.output[0])
+
+    def test_logs_out_after_the_blocks_error(self):
+        body_error = ValueError("the real error")
+
+        error, urls = self.run_block(logout_status=200, body_error=body_error)
+
+        self.assertIs(error, body_error)
+        self.assertEqual(urls[-1], self.LOGOUT_URL)
+
+
 class LoginAuthFallbackTester(unittest.TestCase):
     """Falling back from digest to basic authentication when the server rejects digest"""
 
