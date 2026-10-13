@@ -154,7 +154,7 @@ You can set the version here to override the value provided by the server
 If you don't want to manually call the session's login and logout methods, the Session object can be opened in a context manager that logs the client in and out automatically.
 
 ```python
-with Session(rets_client = Session(login_url, username, password) as s:
+with Session(login_url, username, password) as s:
     print('Now logged in')
     system_metadata = s.get_system_metadata()
     search_results = s.search(resource='Property', resource_class='RES', limit=100, dmql_query='(ListPrice=150000+)')
@@ -207,7 +207,7 @@ Returns a list of dicts containing information on objects for one or more conten
 Here is an example of getting an object's images and saving them to file:
 
 ```python
-with Session(rets_client = Session(login_url, username, password) as s:
+with Session(login_url, username, password) as s:
     unique_listing_id = '123456789'
     object_dict_list = s.get_object(
         resource='Property',
@@ -217,7 +217,7 @@ with Session(rets_client = Session(login_url, username, password) as s:
 
     for ob in object_dict_list:
         ## Save the images individually
-        file_name = "{}_{}.jpg".format(unique_listing_id, ob['content_id'])
+        file_name = "{}_{}.jpg".format(unique_listing_id, ob['object_id'])
         with open(file_name, 'wb') as f:
             f.write(ob['content'])
 
