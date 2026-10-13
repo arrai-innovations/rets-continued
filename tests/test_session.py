@@ -1,7 +1,9 @@
 import unittest
+from unittest import mock
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
+import requests
 import responses
 
 from rets.exceptions import HTTPException
@@ -413,6 +415,26 @@ class SessionTester(unittest.TestCase):
                 status=200,
             )
             self.assertEqual(len(list(results)), 3)
+
+    def test_search_closes_the_response_when_stopped_early(self):
+        with open("tests/rets_responses/COMPACT-DECODED/Search.xml") as f:
+            search_contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=search_contents, status=200)
+            results = self.session.search(
+                resource="Property",
+                resource_class="RES",
+                search_filter={"ListingPrice": 200000},
+            )
+            with mock.patch.object(requests.Response, "close", autospec=True) as close:
+                next(results)
+                close.assert_not_called()
+
+                # Stopping partway through the rows releases the connection, rather than leaving it open
+                # until the generator is garbage collected.
+                results.close()
+                close.assert_called_once_with(resps.calls[0].response)
 
     def test_auto_offset(self):
         with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:

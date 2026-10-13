@@ -2,6 +2,7 @@ import unittest
 
 from rets.exceptions import MaxrowException
 from rets.exceptions import ParseError
+from rets.exceptions import RETSException
 from rets.parsers.base import Base
 from rets.parsers.get_object import MultipleObjectParser
 from rets.parsers.get_object import SingleObjectParser
@@ -20,12 +21,6 @@ SYSTEM_RESPONSE = (
 )
 
 
-class FakeRaw:
-    """The urllib3 stream that the search cursor sets decode_content on."""
-
-    decode_content = False
-
-
 class FakeResponse:
     """Stands in for the requests Response that the parsers read."""
 
@@ -33,7 +28,10 @@ class FakeResponse:
         self.text = text
         self.headers = headers if headers is not None else {"Content-Type": "text/plain"}
         self.content = content if content is not None else text.encode("latin-1")
-        self.raw = FakeRaw()
+
+    def iter_content(self, chunk_size=1):
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
 
 
 class CompactSystemMetadataTester(unittest.TestCase):
@@ -349,6 +347,59 @@ class LoginParserTester(unittest.TestCase):
         parser.parse(FakeResponse("Login=http://server.rets.com/rets/Login.ashx", headers={}))
 
         self.assertEqual(parser.capabilities, {"Login": "http://server.rets.com/rets/Login.ashx"})
+
+
+class ChunkedResponse:
+    """A streamed response whose body arrives in the given chunks, counting how many have been read"""
+
+    def __init__(self, chunks):
+        self.chunks = chunks
+        self.chunks_read = 0
+
+    def iter_content(self, chunk_size=1):
+        for chunk in self.chunks:
+            self.chunks_read += 1
+            yield chunk
+
+    @property
+    def content(self):
+        return b"".join(self.iter_content())
+
+
+class SearchStreamingTester(unittest.TestCase):
+    """Search rows come out as the response arrives, rather than once all of it has been read"""
+
+    def test_first_row_before_the_whole_response(self):
+        response = ChunkedResponse(
+            [b'<RETS ReplyCode="0"><DELIMITER value="09"/><COLUMNS>\tListingID\t</COLUMNS>']
+            + [f"<DATA>\t{i}\t</DATA>".encode() for i in range(1000)]
+            + [b"</RETS>"]
+        )
+        rows = OneXSearchCursor().generator(response=response)
+
+        self.assertEqual(next(rows), {"ListingID": "0"})
+        self.assertLess(response.chunks_read, 10)
+
+        self.assertEqual(len(list(rows)), 999)
+        self.assertEqual(response.chunks_read, 1002)
+
+    def test_error_reply_code_before_any_row(self):
+        response = ChunkedResponse(
+            [
+                b'<RETS ReplyCode="20203" ReplyText="Miscellaneous search error.">',
+                b"<COLUMNS>\tListingID\t</COLUMNS><DATA>\t1\t</DATA>",
+                b"</RETS>",
+            ]
+        )
+
+        with self.assertRaises(RETSException) as caught:
+            next(OneXSearchCursor().generator(response=response))
+        self.assertEqual(str(caught.exception), "RETS Error 20203: Miscellaneous search error.")
+
+    def test_no_records_found(self):
+        response = ChunkedResponse([b'<RETS ReplyCode="20201" ReplyText="No Records Found."/>'])
+
+        self.assertEqual(list(OneXSearchCursor().generator(response=response)), [])
 
 
 class SearchCursorTester(unittest.TestCase):

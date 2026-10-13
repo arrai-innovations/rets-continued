@@ -456,29 +456,36 @@ class Session:
         # given to the Session is reused by every search, so its count carries over from
         # earlier searches and would offset this one past results it never returned.
         rows_returned = 0  # rows yielded so far, across every request this search has made
-        while True:
-            rows_before_request = rows_returned
-            try:
-                for row in search_cursor.generator(response=response):
-                    rows_returned += 1
-                    yield row
-                break  # Got to end of generator without raising Maxrow exception
+        try:
+            while True:
+                rows_before_request = rows_returned
+                try:
+                    for row in search_cursor.generator(response=response):
+                        rows_returned += 1
+                        yield row
+                    break  # Got to end of generator without raising Maxrow exception
 
-            except MaxrowException:
-                if rows_returned == rows_before_request:
-                    # Asking again from the same offset would get the same empty page, forever.
-                    logger.warning("The RETS server truncated a search response that held no rows; stopping.")
-                    break
+                except MaxrowException:
+                    if rows_returned == rows_before_request:
+                        # Asking again from the same offset would get the same empty page, forever.
+                        logger.warning("The RETS server truncated a search response that held no rows; stopping.")
+                        break
 
-                # Recursive searching if automatically performing offsets for the  client.
-                # Without a limit, keep going until the server stops truncating.
-                if auto_offset and (not limit or limit > rows_returned):
-                    if limit:
-                        parameters["Limit"] = limit - rows_returned  # have not returned results to the desired limit
-                    parameters["Offset"] = offset + rows_returned  # adjust offset
-                    response = self._request(capability="Search", options={"query": parameters}, stream=True)
-                else:
-                    break  # Got max row exception but do not get more results
+                    # Recursive searching if automatically performing offsets for the  client.
+                    # Without a limit, keep going until the server stops truncating.
+                    if auto_offset and (not limit or limit > rows_returned):
+                        if limit:
+                            # have not returned results to the desired limit
+                            parameters["Limit"] = limit - rows_returned
+                        parameters["Offset"] = offset + rows_returned  # adjust offset
+                        response.close()
+                        response = self._request(capability="Search", options={"query": parameters}, stream=True)
+                    else:
+                        break  # Got max row exception but do not get more results
+        finally:
+            # A streamed response holds its connection until it is read to the end or closed. This also
+            # covers a caller that stops iterating early, and a parser that raises.
+            response.close()
 
     def _request(self, capability, options=None, stream=False):
         """
