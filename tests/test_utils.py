@@ -109,6 +109,32 @@ class SearchTester(unittest.TestCase):
         res4 = self.search_interpreter.filter_to_dmql(filter_dict=dict4)
         self.assertEqual("(CreatedDate=2016-11-22T15:22:00-)", res4)
 
+    def test_numeric_strings(self):
+        # Previously passed the numeric check, then failed formatting with "Unknown format code 'f'".
+        self.assertEqual(
+            self.search_interpreter.filter_to_dmql(filter_dict={"ListPrice": {"$gte": "100"}}),
+            "(ListPrice=100.00+)",
+        )
+        self.assertEqual(
+            self.search_interpreter.filter_to_dmql(filter_dict={"ListPrice": {"$lte": "99.5"}}),
+            "(ListPrice=99.50-)",
+        )
+        self.assertEqual(
+            self.search_interpreter.filter_to_dmql(filter_dict={"ListPrice": {"$gte": "100", "$lte": 200}}),
+            "(ListPrice=100.00-200.00)",
+        )
+
+    def test_non_numeric_values_raise_value_error(self):
+        # A TypeError from float() used to escape instead of the ValueError the helper documents.
+        for filter_dict in [
+            {"ListPrice": {"$gte": None}},
+            {"ListPrice": {"$lte": [100]}},
+            {"ListPrice": {"$gte": 100, "$lte": None}},
+            {"ListPrice": {"$gte": datetime.date(2016, 11, 22), "$lte": 100}},
+        ]:
+            with self.subTest(filter_dict=filter_dict), self.assertRaises(ValueError):
+                self.search_interpreter.filter_to_dmql(filter_dict=filter_dict)
+
     def test_in(self):
         dict1 = {"Status": {"$in": ["Active", "Pending", "Sold"]}}
         res1 = self.search_interpreter.filter_to_dmql(filter_dict=dict1)

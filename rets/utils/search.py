@@ -51,6 +51,14 @@ class DMQLHelper:
 
             return evaluated
 
+        def evaluate_number(val, error_message):
+            """Formats a number, or a string holding one, the way RETS expects it"""
+            try:
+                # Format the converted value, since a numeric string would not take the float format.
+                return f"{float(val):.2f}"
+            except (TypeError, ValueError):
+                raise ValueError(error_message) from None
+
         def evaluate_operators(key_dict):  # noqa: C901
             """Turns the custom filter operators into the expected RETS query"""
             allowed_operators = [
@@ -84,12 +92,11 @@ class DMQLHelper:
                     )
                 else:
                     # comparing numbers
-                    try:
-                        float(key_dict["$gte"])
-                        float(key_dict["$lte"])
-                    except ValueError:
-                        raise ValueError("$gte and $lte expect numeric or datetime values")
-                    string = "{:.2f}-{:.2f}".format(key_dict["$gte"], key_dict["$lte"])
+                    error_message = "$gte and $lte expect numeric or datetime values"
+                    string = "{}-{}".format(
+                        evaluate_number(key_dict["$gte"], error_message),
+                        evaluate_number(key_dict["$lte"], error_message),
+                    )
 
             # Using a single operator key
             elif len(keys) == 1:
@@ -97,21 +104,15 @@ class DMQLHelper:
                     if is_date_time_type(key_dict["$gte"]):
                         string = "{}+".format(evaluate_datetime(key_dict["$gte"]))
                     else:
-                        try:
-                            float(key_dict["$gte"])
-                        except ValueError:
-                            raise ValueError("$gte expects a numeric value or a datetime object")
-                        string = "{:.2f}+".format(key_dict["$gte"])
+                        error_message = "$gte expects a numeric value or a datetime object"
+                        string = "{}+".format(evaluate_number(key_dict["$gte"], error_message))
 
                 elif "$lte" in key_dict:
                     if is_date_time_type(key_dict["$lte"]):
                         string = "{}-".format(evaluate_datetime(key_dict["$lte"]))
                     else:
-                        try:
-                            float(key_dict["$lte"])
-                        except ValueError:
-                            raise ValueError("$lte expects a numeric value or a datetime object")
-                        string = "{:.2f}-".format(key_dict["$lte"])
+                        error_message = "$lte expects a numeric value or a datetime object"
+                        string = "{}-".format(evaluate_number(key_dict["$lte"], error_message))
 
                 elif "$in" in key_dict:
                     if not isinstance(key_dict["$in"], list):
