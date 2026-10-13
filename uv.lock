@@ -519,7 +519,7 @@ wheels = [
 
 [[package]]
 name = "rets-continued"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "defusedxml" },
     { name = "requests" },

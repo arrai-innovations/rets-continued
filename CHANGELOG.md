@@ -18,6 +18,7 @@
 * **Security:** only fall back from digest to basic authentication at login when the login URL uses https. Basic authentication sends the password unencrypted, so over plain http the login now fails with `NotLoggedIn` instead. Servers that only accept basic authentication over http need `http_auth="basic"` passed to the Session explicitly.
 * Fill in the reply code, reply text, row count and DMQL in debug log messages, which were logged as unformatted placeholders.
 * Split multipart GetObject responses at exactly the line breaks that belong to each delimiter, so binary objects ending in CR or LF bytes are no longer truncated, and read part headers separated by bare LFs, which previously left `content_id`, `object_id` and `location` empty.
+* Declare the setuptools build backend in pyproject.toml, so builders no longer fall back to the legacy backend, and uv installs the project into its environment rather than treating it as a virtual project.
 
 ## 2.0.1
 

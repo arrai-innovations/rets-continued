@@ -1,3 +1,8 @@
+[build-system]
+# 77 is the first release to read license-files from the [project] table (PEP 639).
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "rets-continued"
 description = "RETS Client for Real Estate Data"
