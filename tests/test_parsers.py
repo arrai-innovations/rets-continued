@@ -394,7 +394,17 @@ class SearchStreamingTester(unittest.TestCase):
 
         with self.assertRaises(RETSException) as caught:
             next(OneXSearchCursor().generator(response=response))
-        self.assertEqual(str(caught.exception), "RETS Error 20203: Miscellaneous search error.")
+        self.assertEqual(caught.exception.reply_code, "20203")
+        self.assertEqual(caught.exception.reply_text, "Miscellaneous search error.")
+        self.assertEqual(str(caught.exception), "Miscellaneous search error.")
+
+    def test_error_reply_code_without_reply_text(self):
+        response = ChunkedResponse([b'<RETS ReplyCode="20203"/>'])
+
+        with self.assertRaises(RETSException) as caught:
+            list(OneXSearchCursor().generator(response=response))
+        self.assertEqual(caught.exception.reply_code, "20203")
+        self.assertEqual(str(caught.exception), "RETS did not supply a Reply Text.")
 
     def test_no_records_found(self):
         response = ChunkedResponse([b'<RETS ReplyCode="20201" ReplyText="No Records Found."/>'])

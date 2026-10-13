@@ -347,14 +347,16 @@ class SessionTester(unittest.TestCase):
                 body=invalid_contents,
                 status=200,
             )
-            with self.assertRaises(RETSException):
-                r = self.session.search(
-                    resource="Property",
-                    resource_class="RES",
-                    dmql_query="ListingPrice=200000",
-                    optional_parameters={"Format": "Somecrazyformat"},
-                )
-                print(list(r))  # noqa: T201
+            r = self.session.search(
+                resource="Property",
+                resource_class="RES",
+                dmql_query="ListingPrice=200000",
+                optional_parameters={"Format": "Somecrazyformat"},
+            )
+            with self.assertRaises(RETSException) as caught:
+                list(r)
+            self.assertEqual(caught.exception.reply_code, "20513")
+            self.assertEqual(caught.exception.reply_text, "Invalid Format")
 
     def test_search_validates_arguments_when_called(self):
         """Bad arguments must raise from the search() call, not wait for the caller to iterate."""

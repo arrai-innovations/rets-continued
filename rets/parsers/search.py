@@ -100,9 +100,9 @@ class OneXSearchCursor(Base):
         :return: None
         """
         reply_code = elem.get("ReplyCode")
-        reply_text = elem.get("ReplyText")
+        reply_text = elem.get("ReplyText", "RETS did not supply a Reply Text.")
 
         # RETS Response 20201 - No Records Found. The search simply returns nothing.
         if reply_code not in ("0", "20201"):
-            msg = f"RETS Error {reply_code!s}: {reply_text!s}"
-            raise RETSException(msg)
+            # Raised like every other reply code, so callers can tell errors apart by reply_code.
+            raise RETSException(reply_text, reply_code)
