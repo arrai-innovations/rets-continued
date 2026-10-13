@@ -405,7 +405,7 @@ class Session:
         Request search results and yield each row, following offsets when the server truncates
         :param parameters: The query parameters assembled by search()
         :param search_cursor: The parser turning each response into row dicts
-        :param limit: The number of rows the caller asked for
+        :param limit: The number of rows the caller asked for, or None for as many as the server has
         :param offset: The offset the search started from
         :param auto_offset: Should the search be allowed to trigger subsequent searches.
         :return: generator of dicts
@@ -416,6 +416,7 @@ class Session:
         # earlier searches and would offset this one past results it never returned.
         rows_returned = 0  # rows yielded so far, across every request this search has made
         while True:
+            rows_before_request = rows_returned
             try:
                 for row in search_cursor.generator(response=response):
                     rows_returned += 1
@@ -423,9 +424,16 @@ class Session:
                 break  # Got to end of generator without raising Maxrow exception
 
             except MaxrowException:
-                # Recursive searching if automatically performing offsets for the  client
-                if auto_offset and limit > rows_returned:
-                    parameters["Limit"] = limit - rows_returned  # have not returned results to the desired limit
+                if rows_returned == rows_before_request:
+                    # Asking again from the same offset would get the same empty page, forever.
+                    logger.warning("The RETS server truncated a search response that held no rows; stopping.")
+                    break
+
+                # Recursive searching if automatically performing offsets for the  client.
+                # Without a limit, keep going until the server stops truncating.
+                if auto_offset and (not limit or limit > rows_returned):
+                    if limit:
+                        parameters["Limit"] = limit - rows_returned  # have not returned results to the desired limit
                     parameters["Offset"] = offset + rows_returned  # adjust offset
                     response = self._request(capability="Search", options={"query": parameters}, stream=True)
                 else:

@@ -12,6 +12,7 @@
 * Split COMPACT-DECODED metadata rows on tabs, so that values containing spaces and empty fields stay in their own columns.
 * Cache metadata responses per format, so that falling back to STANDARD-XML no longer re-reads earlier COMPACT-DECODED responses with the wrong parser, and never cache a response that failed to parse.
 * Key wildcard STANDARD-XML class, table and object metadata by resource or class name, instead of failing with a `KeyError` on the missing `Lookup` attribute. Each name now always maps to a list, even when it has a single entry.
+* Stop auto-offsetting when the server truncates a search response that holds no rows, rather than requesting the same page forever, and follow truncated searches made with `limit=None` instead of failing with a `TypeError`.
 
 ## 2.0.1
 

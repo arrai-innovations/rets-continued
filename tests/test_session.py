@@ -405,6 +405,48 @@ class SessionTester(unittest.TestCase):
             results = list(results_gen)
             self.assertEqual(len(results), 6)
 
+    def test_auto_offset_stops_on_an_empty_truncated_page(self):
+        """A MAXROWS response without rows would otherwise be requested again from the same offset forever."""
+        empty_truncated = (
+            '<RETS ReplyCode="0" ReplyText="Success"><COUNT Records="5"/><DELIMITER value="09"/>'
+            "<COLUMNS>\tListingID\t</COLUMNS><MAXROWS/></RETS>"
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=empty_truncated, status=200)
+            with self.assertLogs("rets", level="WARNING"):
+                results = list(
+                    self.session.search(resource="Property", resource_class="RES", search_filter={"ListingID": 1})
+                )
+
+            self.assertEqual(results, [])
+            self.assertEqual(len(resps.calls), 1)
+
+    def test_auto_offset_without_a_limit(self):
+        with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
+            search1_contents = "".join(f.readlines())
+
+        with open("tests/rets_responses/COMPACT-DECODED/Search_2of2.xml") as f:
+            search2_contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            for contents in (search1_contents, search2_contents):
+                resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=contents, status=200)
+
+            results = list(
+                self.session.search(
+                    resource="Property",
+                    resource_class="RES",
+                    search_filter={"ListingPrice": 200000},
+                    limit=None,
+                )
+            )
+            sent = [parse_qs(call.request.body) for call in resps.calls]
+
+        self.assertEqual(len(results), 6)
+        self.assertEqual([q.get("Offset") for q in sent], [None, ["3"]])
+        self.assertEqual([q.get("Limit") for q in sent], [None, None])
+
     def test_auto_offset_with_shared_search_parser(self):
         """A search_parser is reused by every search, so its state must not shift later offsets."""
         with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
