@@ -1,5 +1,5 @@
 [build-system]
-# 77 is the first release to read license-files from the [project] table (PEP 639).
+# 77 is the first release to read the license expression and license-files from the [project] table (PEP 639).
 requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
@@ -7,6 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "rets-continued"
 description = "RETS Client for Real Estate Data"
 readme = "README.md"
+license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "REfindly", email = "info@refindly.com" },

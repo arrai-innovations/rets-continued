@@ -19,6 +19,7 @@
 * Fill in the reply code, reply text, row count and DMQL in debug log messages, which were logged as unformatted placeholders.
 * Split multipart GetObject responses at exactly the line breaks that belong to each delimiter, so binary objects ending in CR or LF bytes are no longer truncated, and read part headers separated by bare LFs, which previously left `content_id`, `object_id` and `location` empty.
 * Declare the setuptools build backend in pyproject.toml, so builders no longer fall back to the legacy backend, and uv installs the project into its environment rather than treating it as a virtual project.
+* Declare the MIT license in the package metadata.
 
 ## 2.0.1
 
