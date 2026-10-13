@@ -608,10 +608,11 @@ class Session:
                 "sent with every request, including the login, so it is needed before the server can report "
                 'its own. Pass the version your RETS server uses to the Session, such as version="RETS/1.7.2".'
             )
-        version_number = self.version.strip("RETS/")
         user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode()
         a1 = hashlib.md5(user_str).hexdigest()  # noqa: S324
         session_id = self.session_id if self.session_id is not None else ""
-        digest_str = f"{a1!s}::{session_id!s}:{version_number!s}".encode()
+        # The version is hashed exactly as the RETS-Version header sends it, prefix included, such as "RETS/1.7.2".
+        # The empty field between the colons is the RETS-Request-ID, which this client does not send.
+        digest_str = f"{a1!s}::{session_id!s}:{self.version!s}".encode()
         digest = hashlib.md5(digest_str).hexdigest()  # noqa: S324
         return digest

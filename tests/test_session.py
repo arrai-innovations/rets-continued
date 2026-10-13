@@ -671,7 +671,23 @@ class SessionTester(unittest.TestCase):
 
     def test_agent_digest_hash(self):
         self.session.user_agent_password = "testing"  # noqa: S105
-        self.assertIsNotNone(self.session._user_agent_digest_hash())
+
+        # Section 3.10 of the RETS 1.7.2 spec, worked out with md5sum:
+        #   a1 = MD5("Python RETS:testing") = 20b0a313ce37c22aef5a41459d2b217a
+        #   MD5(a1 "::" session ID ":" RETS-Version), where the version keeps its "RETS/" prefix
+        self.assertEqual(self.session._user_agent_digest_hash(), "699137ecaf098fdae7f70e3610469dc5")
+
+    def test_agent_digest_header(self):
+        self.session.user_agent_password = "testing"  # noqa: S105
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Logout.ashx", body="", status=200)
+            self.session.logout()
+            headers = resps.calls[0].request.headers
+
+        self.assertEqual(headers["RETS-UA-Authorization"], "Digest 699137ecaf098fdae7f70e3610469dc5")
+        # The digest covers the version the request actually sends.
+        self.assertEqual(headers["RETS-Version"], "RETS/1.7.2")
 
     def test_user_agent_password_without_a_version(self):
         session = Session(
