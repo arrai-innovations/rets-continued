@@ -1,9 +1,11 @@
 import unittest
 
+from rets.exceptions import ParseError
 from rets.parsers.get_object import MultipleObjectParser
 from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
 from rets.parsers.metadata import CompactMetadata
+from rets.parsers.metadata import StandardXMLMetadata
 from rets.parsers.search import OneXSearchCursor
 
 
@@ -145,6 +147,72 @@ class CompactDataMetadataTester(unittest.TestCase):
             self.parse("<COLUMNS>\tLongValue\tValue\t</COLUMNS><DATA></DATA>"),
             [{"Resource": "Property", "Lookup": "Area"}],
         )
+
+
+class StandardXMLWildcardMetadataTester(unittest.TestCase):
+    """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
+
+    def parse(self, metadata_type, elements):
+        response = FakeResponse(f'<RETS ReplyCode="0"><METADATA>{elements}</METADATA></RETS>')
+        return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type)
+
+    def test_classes_keyed_by_resource(self):
+        self.assertEqual(
+            self.parse(
+                "METADATA-CLASS",
+                '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class>'
+                "<Class><ClassName>LND</ClassName></Class></METADATA-CLASS>"
+                '<METADATA-CLASS Resource="Agent"><Class><ClassName>AGT</ClassName></Class></METADATA-CLASS>',
+            ),
+            {
+                "Property": [{"ClassName": "RES"}, {"ClassName": "LND"}],
+                # A resource with a single class still maps to a list.
+                "Agent": [{"ClassName": "AGT"}],
+            },
+        )
+
+    def test_tables_keyed_by_class(self):
+        self.assertEqual(
+            self.parse(
+                "METADATA-TABLE",
+                '<METADATA-TABLE Resource="Property" Class="RES"><Field><SystemName>A</SystemName></Field>'
+                "</METADATA-TABLE>"
+                '<METADATA-TABLE Resource="Property" Class="LND"><Field><SystemName>B</SystemName></Field>'
+                "</METADATA-TABLE>",
+            ),
+            {"RES": [{"SystemName": "A"}], "LND": [{"SystemName": "B"}]},
+        )
+
+    def test_objects_keyed_by_resource(self):
+        self.assertEqual(
+            self.parse(
+                "METADATA-OBJECT",
+                '<METADATA-OBJECT Resource="Property"><Object><ObjectType>Photo</ObjectType></Object>'
+                "</METADATA-OBJECT>"
+                '<METADATA-OBJECT Resource="Agent"><Object><ObjectType>Photo</ObjectType></Object>'
+                "</METADATA-OBJECT>",
+            ),
+            {"Property": [{"ObjectType": "Photo"}], "Agent": [{"ObjectType": "Photo"}]},
+        )
+
+    def test_repeated_name_is_refused(self):
+        # A wildcard across resources can repeat a class name; merging them would silently drop fields.
+        with self.assertRaises(ParseError):
+            self.parse(
+                "METADATA-TABLE",
+                '<METADATA-TABLE Resource="Property" Class="1"><Field><SystemName>A</SystemName></Field>'
+                "</METADATA-TABLE>"
+                '<METADATA-TABLE Resource="Agent" Class="1"><Field><SystemName>B</SystemName></Field>'
+                "</METADATA-TABLE>",
+            )
+
+    def test_missing_name_attribute(self):
+        with self.assertRaises(ParseError):
+            self.parse(
+                "METADATA-CLASS",
+                '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
+                "<METADATA-CLASS><Class><ClassName>AGT</ClassName></Class></METADATA-CLASS>",
+            )
 
 
 class LoginParserTester(unittest.TestCase):

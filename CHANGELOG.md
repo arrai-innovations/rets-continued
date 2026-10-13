@@ -11,6 +11,7 @@
 * Raise `HTTPException` with the actual status code for refused requests, instead of reporting every 400 as a 401 `NotLoggedIn`.
 * Split COMPACT-DECODED metadata rows on tabs, so that values containing spaces and empty fields stay in their own columns.
 * Cache metadata responses per format, so that falling back to STANDARD-XML no longer re-reads earlier COMPACT-DECODED responses with the wrong parser, and never cache a response that failed to parse.
+* Key wildcard STANDARD-XML class, table and object metadata by resource or class name, instead of failing with a `KeyError` on the missing `Lookup` attribute. Each name now always maps to a list, even when it has a single entry.
 
 ## 2.0.1
 

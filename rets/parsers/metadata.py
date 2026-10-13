@@ -92,6 +92,16 @@ class CompactMetadata(Base):
 class StandardXMLMetadata(Base):
     """Parses STANDARD-XML RETS responses"""
 
+    # For each metadata type: the child element holding its entries, and the attribute naming each
+    # metadata element when a wildcard request returns several of them.
+    element_keys = {  # noqa: RUF012
+        "METADATA-CLASS": ("class", "Resource"),
+        "METADATA-RESOURCE": ("resource", None),
+        "METADATA-LOOKUP_TYPE": ("lookuptype", "Lookup"),
+        "METADATA-OBJECT": ("object", "Resource"),
+        "METADATA-TABLE": ("field", "Class"),
+    }
+
     @staticmethod
     def _identify_key(some_dict, some_key):
         # Get the version with the right capitalization from the dictionary
@@ -114,7 +124,7 @@ class StandardXMLMetadata(Base):
         Parses RETS metadata using the STANDARD-XML format
         :param response: requests Response object
         :param metadata_type: string
-        :return parsed: list
+        :return parsed: list, or a dict of lists keyed by name when the response holds several metadata elements
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
@@ -136,27 +146,29 @@ class StandardXMLMetadata(Base):
                 system_obj["version"] = base["@Version"]
             return [system_obj]
 
-        elif metadata_type == "METADATA-CLASS":
-            key = "class"
-        elif metadata_type == "METADATA-RESOURCE":
-            key = "resource"
-        elif metadata_type == "METADATA-LOOKUP_TYPE":
-            key = "lookuptype"
-        elif metadata_type == "METADATA-OBJECT":
-            key = "object"
-        elif metadata_type == "METADATA-TABLE":
-            key = "field"
-        else:
+        if metadata_type not in self.element_keys:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
+        key, name_attribute = self.element_keys[metadata_type]
 
         if isinstance(base, list):
-            # Multiple resources were returned. Often the result of a wildcard request.
-            # Return dict of lists
+            # Multiple metadata elements were returned, as for a wildcard request.
+            # Return a dict of lists, keyed by the name each element covers.
+            if not name_attribute:
+                msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
+                raise ParseError(msg)
             res = {}
             for i in base:
+                name = i.get(f"@{name_attribute}")
+                if name is None:
+                    msg = f"A {metadata_type!s} element is missing its {name_attribute!s} attribute"
+                    raise ParseError(msg)
+                if name in res:
+                    # Wildcards spanning several resources can repeat a name; refuse rather than lose entries.
+                    msg = f"Got more than one {metadata_type!s} element for {name_attribute!s} {name!s}"
+                    raise ParseError(msg)
                 key_cap = self._identify_key(i, key)
-                res[i["@Lookup"]] = i[key_cap]
+                res[name] = i[key_cap] if isinstance(i[key_cap], list) else [i[key_cap]]
             return res
 
         else:

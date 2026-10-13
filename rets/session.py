@@ -187,7 +187,7 @@ class Session:
         """
         Get classes for a given resource
         :param resource: The resource name to get class metadata for
-        :return: list
+        :return: list, or a dict of lists keyed by name if a wildcard was given
         """
         return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-CLASS")
 
@@ -196,7 +196,7 @@ class Session:
         Get metadata for a given resource: class
         :param resource: The name of the resource
         :param resource_class: The name of the class to get metadata from
-        :return: list
+        :return: list, or a dict of lists keyed by name if a wildcard was given
         """
         return self._make_metadata_request(meta_id=resource + ":" + resource_class, metadata_type="METADATA-TABLE")
 
@@ -204,7 +204,7 @@ class Session:
         """
         Get object metadata from a resource
         :param resource: The resource name to get object metadata for
-        :return: list
+        :return: list, or a dict of lists keyed by name if a wildcard was given
         """
         return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-OBJECT")
 
