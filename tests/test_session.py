@@ -948,6 +948,102 @@ class NoLogoutCapabilityTester(unittest.TestCase):
             self.session.logout()
 
 
+class LogoutStateTester(unittest.TestCase):
+    """What a session keeps once it has logged out"""
+
+    LOGIN_URL = "http://server.rets.com/rets/Login.ashx"
+    LOGOUT_URL = "http://server.rets.com/rets/Logout.ashx"
+
+    def setUp(self):
+        super().setUp()
+        with open("tests/rets_responses/Login.xml") as f:
+            self.login_contents = "".join(f.readlines())
+        self.session = Session(login_url=self.LOGIN_URL, username="retsuser", version="RETS/1.7.2")
+
+    def add_login(self, resps):
+        resps.add(
+            resps.POST,
+            self.LOGIN_URL,
+            body=self.login_contents,
+            status=200,
+            headers={"Set-Cookie": "RETS-Session-ID=abc123; Path=/"},
+        )
+
+    def test_logout_forgets_the_login(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=200)
+
+            self.session.login()
+            self.assertEqual(self.session.session_id, "abc123")
+            self.session.logout()
+
+        self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
+        self.assertIsNone(self.session.session_id)
+        self.assertEqual(len(self.session.client.cookies), 0)
+
+    def test_requests_after_logout_report_the_missing_login(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=200)
+            self.session.login()
+            self.session.logout()
+
+            # Raised before any request is sent, rather than using the session the server has ended.
+            with self.assertRaises(NotLoggedIn):
+                self.session.get_system_metadata()
+            with self.assertRaises(NotLoggedIn):
+                self.session.logout()
+            self.assertEqual(len(resps.calls), 2)
+
+    def test_login_again_after_logout(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=200)
+            self.session.login()
+            self.session.logout()
+
+            self.assertTrue(self.session.login())
+            self.assertTrue(self.session.logout())
+            self.assertEqual(
+                [call.request.url for call in resps.calls],
+                [self.LOGIN_URL, self.LOGOUT_URL, self.LOGIN_URL, self.LOGOUT_URL],
+            )
+
+    def test_failed_logout_keeps_the_login(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=500)
+            self.session.login()
+
+            with self.assertRaises(HTTPException):
+                self.session.logout()
+
+        # The server may still hold the session, so logging out can be tried again.
+        self.assertIn("Logout", self.session.capabilities)
+        self.assertEqual(self.session.session_id, "abc123")
+
+    def test_logout_inside_a_with_block(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=200)
+
+            with self.session as s:
+                s.logout()
+
+            # Leaving the block does not log out a second time.
+            self.assertEqual([call.request.url for call in resps.calls], [self.LOGIN_URL, self.LOGOUT_URL])
+
+    def test_logout_without_a_logout_capability_forgets_the_login(self):
+        contents = "".join(line + "\n" for line in self.login_contents.splitlines() if not line.startswith("Logout="))
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, self.LOGIN_URL, body=contents, status=200)
+            self.session.login()
+            self.session.logout()
+
+        self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
+
+
 class LoginAuthFallbackTester(unittest.TestCase):
     """Falling back from digest to basic authentication when the server rejects digest"""
 

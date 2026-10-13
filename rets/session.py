@@ -110,6 +110,10 @@ class Session:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context Manager: Logout when leaving context"""
+        if not self._logged_in:
+            # The block already logged out itself.
+            return
+
         if exc_type is None:
             self.logout()
             return
@@ -169,7 +173,8 @@ class Session:
 
     def logout(self):
         """
-        Logs out of the RETS feed destroying the HTTP session.
+        Logs out of the RETS feed destroying the HTTP session. The session then keeps only the Login capability,
+        so it must log in again before making other requests.
         :return: True
         """
         if self._logged_in and "Logout" not in self.capabilities:
@@ -177,11 +182,25 @@ class Session:
             # it holds will end with the server's own timeout. Before a login, this falls through to
             # _request, which reports the missing login.
             logger.debug("The RETS server has no Logout capability, so its session is left to expire.")
+            self._forget_login()
             return True
 
         logger.debug("Logging out of RETS session.")
         self._request(capability="Logout")
+        self._forget_login()
         return True
+
+    def _forget_login(self):
+        """
+        Drop what the login handed out, so that later requests report the missing login instead of using a
+        session the server has ended, and a later login starts from the capabilities it reports.
+        :return: None
+        """
+        self._logged_in = False
+        self.session_id = None
+        self.client.cookies.clear()
+        self.capabilities = {}
+        self.add_capability(name="Login", uri=self.login_url)
 
     def get_system_metadata(self):
         """

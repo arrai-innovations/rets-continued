@@ -23,6 +23,7 @@
 * Reword the `MissingVersion` message, which was missing spaces and blamed the server: the version must be passed to the Session for user agent authentication, since the login request already needs it.
 * When a `with Session(...)` block raises and logging out then fails as well, raise the block's error rather than the logout's, and log the logout failure as a warning.
 * Treat logging out as done when the server's login response offers no Logout capability, instead of raising `NotLoggedIn`, which made every `with Session(...)` block against such a server fail on exit. Logging out before logging in still raises.
+* Forget the login once logging out succeeds: the session drops its capabilities, session ID and cookies, so later requests raise `NotLoggedIn` instead of using a session the server has ended, and leaving a `with Session(...)` block that already logged out no longer logs out again.
 
 ## 2.0.1
 
