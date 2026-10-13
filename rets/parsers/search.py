@@ -65,7 +65,7 @@ class OneXSearchCursor(Base):
             # handle max rows
             elif elem.tag == "MAXROWS":
                 logger.debug("MAXROWS Tag reached in XML")
-                logger.debug("Received %(self.parsed_rows)s results from this search")
+                logger.debug("This search parser has parsed %s rows in all", self.parsed_rows)
                 raise MaxrowException(self.parsed_rows)
 
             else:

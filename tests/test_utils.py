@@ -135,6 +135,12 @@ class SearchTester(unittest.TestCase):
             with self.subTest(filter_dict=filter_dict), self.assertRaises(ValueError):
                 self.search_interpreter.filter_to_dmql(filter_dict=filter_dict)
 
+    def test_logs_the_dmql(self):
+        with self.assertLogs("rets", level="DEBUG") as logs:
+            self.search_interpreter.filter_to_dmql(filter_dict={"Status": "A"})
+
+        self.assertEqual([r.getMessage() for r in logs.records], ["Filter returned the following DMQL: (Status=A)"])
+
     def test_in(self):
         dict1 = {"Status": {"$in": ["Active", "Pending", "Sold"]}}
         res1 = self.search_interpreter.filter_to_dmql(filter_dict=dict1)

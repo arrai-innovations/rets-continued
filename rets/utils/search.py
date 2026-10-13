@@ -173,5 +173,5 @@ class DMQLHelper:
 
         search_string = ",".join(dmql_search_filters)
         # Converts the filter dictionary to dmqp string
-        logger.debug("Filter returned the following DMQL: %(search_string)s")
+        logger.debug("Filter returned the following DMQL: %s", search_string)
         return search_string

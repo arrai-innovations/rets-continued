@@ -1,6 +1,8 @@
 import unittest
 
+from rets.exceptions import MaxrowException
 from rets.exceptions import ParseError
+from rets.parsers.base import Base
 from rets.parsers.get_object import MultipleObjectParser
 from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
@@ -213,6 +215,46 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
                 '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
                 "<METADATA-CLASS><Class><ClassName>AGT</ClassName></Class></METADATA-CLASS>",
             )
+
+
+class LogMessageTester(unittest.TestCase):
+    """The parsers' debug messages carry the values they describe, not unfilled placeholders"""
+
+    def test_reply_code(self):
+        with self.assertLogs("rets", level="DEBUG") as logs:
+            Base().analyze_reply_code({"RETS": {"@ReplyCode": "0", "@ReplyText": "Operation Success."}})
+
+        self.assertEqual(
+            [r.getMessage() for r in logs.records],
+            ["Received ReplyCode of 0 from the RETS Server: Operation Success."],
+        )
+
+    def test_rets_status_reply_code(self):
+        with self.assertLogs("rets", level="DEBUG") as logs:
+            Base().analyze_reply_code(
+                {
+                    "RETS-STATUS": {"@ReplyCode": "0", "@ReplyText": "Status OK."},
+                    "RETS": {"@ReplyCode": "0", "@ReplyText": "Operation Success."},
+                }
+            )
+
+        self.assertEqual(
+            [r.getMessage() for r in logs.records],
+            [
+                "Received ReplyCode of 0 from the RETS Server: Status OK.",
+                "Received ReplyCode of 0 from the RETS Server: Operation Success.",
+            ],
+        )
+
+    def test_maxrows(self):
+        body = (
+            '<RETS ReplyCode="0"><DELIMITER value="09"/><COLUMNS>\tListingID\t</COLUMNS>'
+            "<DATA>\t123\t</DATA><DATA>\t456\t</DATA><MAXROWS/></RETS>"
+        )
+        with self.assertLogs("rets", level="DEBUG") as logs, self.assertRaises(MaxrowException):
+            list(OneXSearchCursor().generator(response=FakeResponse(body)))
+
+        self.assertIn("This search parser has parsed 2 rows in all", [r.getMessage() for r in logs.records])
 
 
 class LoginParserTester(unittest.TestCase):
