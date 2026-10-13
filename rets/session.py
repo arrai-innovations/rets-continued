@@ -464,13 +464,24 @@ class Session:
         if self.use_post_method and capability != "Action":  # Action Requests should always be GET
             query = options.get("query")
             response = self.client.post(
-                url, data=query, headers=options["headers"], stream=stream, timeout=self.timeout
+                url,
+                data=query,
+                headers=options["headers"],
+                stream=stream,
+                timeout=self.timeout,
+                allow_redirects=self.follow_redirects,
             )
         else:
             if "query" in options:
                 url += "?" + "&".join(f"{k!s}={quote(str(v))!s}" for k, v in options["query"].items())
 
-            response = self.client.get(url, headers=options["headers"], stream=stream, timeout=self.timeout)
+            response = self.client.get(
+                url,
+                headers=options["headers"],
+                stream=stream,
+                timeout=self.timeout,
+                allow_redirects=self.follow_redirects,
+            )
 
         # Both codes count as an auth challenge on Login, since a server that cannot handle the
         # digest attempt may reject it with a 400 rather than a 401.
@@ -502,6 +513,14 @@ class Session:
             raise HTTPException(
                 "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session."
             )
+
+        if response.is_redirect:
+            # Only reached with follow_redirects=False. The body isn't a RETS response, so the parsers can't use it.
+            msg = (
+                f"The RETS server redirected the {capability!s} request to {response.headers['Location']!s}, "
+                "which was not followed because follow_redirects is False."
+            )
+            raise HTTPException(msg)
 
         if not response.ok:
             # Anything else the server refused. A RETS server reports its own errors as a

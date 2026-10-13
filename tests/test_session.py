@@ -13,6 +13,12 @@ from rets.session import Session
 from tests.custom_parser_example import CreaStandardXParser
 
 
+SEARCH_RESPONSE = (
+    '<RETS ReplyCode="0" ReplyText="Success"><DELIMITER value="09"/>'
+    "<COLUMNS>\tListingID\t</COLUMNS><DATA>\t1\t</DATA></RETS>"
+)
+
+
 class SessionTester(unittest.TestCase):
     def setUp(self):
         super().setUp()
@@ -767,6 +773,34 @@ class StatusCodeTester(unittest.TestCase):
                 self.search()
 
         self.assertIn("use_post_method=False", str(caught.exception))
+
+    def test_redirect_is_followed(self):
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                status=307,
+                headers={"Location": "http://server.rets.com/rets/Search2.ashx"},
+            )
+            resps.add(resps.POST, "http://server.rets.com/rets/Search2.ashx", body=SEARCH_RESPONSE, status=200)
+
+            self.assertEqual(self.search(), [{"ListingID": "1"}])
+
+    def test_redirect_is_not_followed(self):
+        self.session.follow_redirects = False
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                status=307,
+                headers={"Location": "http://server.rets.com/rets/Search2.ashx"},
+            )
+
+            with self.assertRaises(HTTPException) as caught:
+                self.search()
+
+            self.assertEqual(len(resps.calls), 1)
+        self.assertIn("http://server.rets.com/rets/Search2.ashx", str(caught.exception))
 
 
 class LoginAuthFallbackTester(unittest.TestCase):
