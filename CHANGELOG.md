@@ -1,5 +1,15 @@
 # RETS Changelog
 
+## Unreleased
+
+* Preserve every lookup's values in wildcard STANDARD-XML metadata requests, rather than reducing the result to a list of lookup names.
+* Start each search's auto-offset at zero, so repeated searches through a shared search parser no longer skip rows.
+* Read COMPACT METADATA-SYSTEM fields independently of each other, accept the mixed-case `<System>` element, and read comments from the sibling `COMMENTS` element.
+* Recognize "X-" prefixed vendor capabilities in the login response.
+* Tolerate responses missing a Content-Type header, empty search rows, and empty delimiters.
+* Validate search arguments when `search()` is called, rather than when its results are first iterated.
+* Raise `HTTPException` with the actual status code for refused requests, instead of reporting every 400 as a 401 `NotLoggedIn`.
+
 ## 2.0.1
 
 * Parse COMPACT-DECODED metadata responses that contain more than one metadata element, such as wildcard lookups.
