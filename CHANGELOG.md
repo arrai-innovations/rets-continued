@@ -28,6 +28,7 @@
 * Hash the RETS version in the user agent authentication digest exactly as the `RETS-Version` header sends it, such as `RETS/1.7.2`, as section 3.10 of the RETS spec requires. The digest previously dropped the `RETS/` prefix, so it could not match the digest a server computes from the spec.
 * Stream search results. The search parser read the whole response into memory before yielding its first row, and kept every parsed row attached to the document until the end. It now parses each chunk as it arrives and lets each row go once it has been yielded. A search error reply code is raised as soon as the response opens, before any rows, and a search the caller stops iterating early closes its connection.
 * Give the `RETSException` raised for a search error reply code its `reply_code` and `reply_text`, like every other `RETSException`, so callers can tell search errors apart. Its message is now the server's reply text, without the "RETS Error <code>:" prefix.
+* Give `HTTPException` a `status_code` attribute holding the HTTP status the server answered with, so callers no longer have to read it out of the message.
 
 ## 2.0.1
 

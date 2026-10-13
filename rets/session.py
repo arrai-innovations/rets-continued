@@ -586,7 +586,8 @@ class Session:
 
         if response.status_code == 404 and self.use_post_method:
             raise HTTPException(
-                "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session."
+                "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session.",
+                status_code=response.status_code,
             )
 
         if response.is_redirect:
@@ -595,13 +596,13 @@ class Session:
                 f"The RETS server redirected the {capability!s} request to {response.headers['Location']!s}, "
                 "which was not followed because follow_redirects is False."
             )
-            raise HTTPException(msg)
+            raise HTTPException(msg, status_code=response.status_code)
 
         if not response.ok:
             # Anything else the server refused. A RETS server reports its own errors as a
             # non-zero ReplyCode with a 200, so a failing status is about the HTTP request.
             msg = f"The RETS server returned a {response.status_code!s} status code for the {capability!s} request."
-            raise HTTPException(msg)
+            raise HTTPException(msg, status_code=response.status_code)
 
     def _user_agent_digest_hash(self):
         """

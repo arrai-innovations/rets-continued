@@ -836,6 +836,7 @@ class StatusCodeTester(unittest.TestCase):
                 self.search()
 
         self.assertIn("400", str(caught.exception))
+        self.assertEqual(caught.exception.status_code, 400)
         self.assertNotIsInstance(caught.exception, NotLoggedIn)
 
     def test_401_still_reports_an_auth_failure(self):
@@ -854,6 +855,7 @@ class StatusCodeTester(unittest.TestCase):
                 self.search()
 
         self.assertIn("500", str(caught.exception))
+        self.assertEqual(caught.exception.status_code, 500)
 
     def test_404_on_post_advises_the_get_method(self):
         with responses.RequestsMock() as resps:
@@ -863,6 +865,7 @@ class StatusCodeTester(unittest.TestCase):
                 self.search()
 
         self.assertIn("use_post_method=False", str(caught.exception))
+        self.assertEqual(caught.exception.status_code, 404)
 
     def test_redirect_is_followed(self):
         with responses.RequestsMock() as resps:
@@ -891,6 +894,7 @@ class StatusCodeTester(unittest.TestCase):
 
             self.assertEqual(len(resps.calls), 1)
         self.assertIn("http://server.rets.com/rets/Search2.ashx", str(caught.exception))
+        self.assertEqual(caught.exception.status_code, 307)
 
 
 class ContextManagerTester(unittest.TestCase):

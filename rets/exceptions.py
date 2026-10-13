@@ -13,7 +13,11 @@ class RETSException(Exception):  # noqa: N818
 
 
 class HTTPException(Exception):  # noqa: N818
-    pass
+    """The RETS server refused the HTTP request, or answered it with a redirect that was not followed"""
+
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class NotLoggedIn(Exception):  # noqa: N818

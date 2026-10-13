@@ -155,10 +155,10 @@ If you don't want to manually call the session's login and logout methods, the S
 
 ```python
 with Session(login_url, username, password) as s:
-    print('Now logged in')
+    print("Now logged in")
     system_metadata = s.get_system_metadata()
-    search_results = s.search(resource='Property', resource_class='RES', limit=100, dmql_query='(ListPrice=150000+)')
-print('Now logged out')
+    search_results = s.search(resource="Property", resource_class="RES", limit=100, dmql_query="(ListPrice=150000+)")
+print("Now logged out")
 ## do stuff with the search results
 ```
 
@@ -208,19 +208,14 @@ Here is an example of getting an object's images and saving them to file:
 
 ```python
 with Session(login_url, username, password) as s:
-    unique_listing_id = '123456789'
-    object_dict_list = s.get_object(
-        resource='Property',
-        object_type='LargePhoto',
-        content_ids=unique_listing_id
-    )
+    unique_listing_id = "123456789"
+    object_dict_list = s.get_object(resource="Property", object_type="LargePhoto", content_ids=unique_listing_id)
 
     for ob in object_dict_list:
         ## Save the images individually
-        file_name = "{}_{}.jpg".format(unique_listing_id, ob['object_id'])
-        with open(file_name, 'wb') as f:
-            f.write(ob['content'])
-
+        file_name = "{}_{}.jpg".format(unique_listing_id, ob["object_id"])
+        with open(file_name, "wb") as f:
+            f.write(ob["content"])
 ```
 
 ## Searching
@@ -362,6 +357,8 @@ When the Session is instantiated, pass the and instance of the class as the `sea
 ## RETS Exceptions
 
 There are many RETS Reply Codes that can be returned from the server. As a rule, this rets library raises a `rets.exceptions.RETSException` for all reply codes that are non-zero. The reply_code and reply_text are set as parameters for the exception to make it easier for applications to catch and respond to specific reply codes.
+
+When the server refuses the HTTP request itself, such as with a 500, or answers with a redirect while `follow_redirects` is `False`, the library raises a `rets.exceptions.HTTPException` instead. Its `status_code` holds the HTTP status the server answered with. A 401 raises `rets.exceptions.NotLoggedIn`.
 
 ## Contributing
 
