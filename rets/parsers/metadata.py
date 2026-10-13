@@ -23,6 +23,17 @@ class CompactMetadata(Base):
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
         base = xml.get("RETS", {}).get(metadata_type, {})
+
+        # xmltodict returns a list when the metadata element repeats, as it does for a wildcard lookup.
+        for element in base if isinstance(base, list) else [base]:
+            yield from self._parse_element(element)
+
+    def _parse_element(self, base):
+        """
+        Parses a single COMPACT-DECODED metadata element
+        :param base: The metadata element, as parsed by xmltodict
+        :return:
+        """
         attributes = self.get_attributes(base)
 
         if base.get("System") or base.get("SYSTEM"):

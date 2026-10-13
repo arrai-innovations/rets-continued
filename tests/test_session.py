@@ -369,6 +369,30 @@ class SessionTester(unittest.TestCase):
 
         self.assertEqual(len(list(lookup_values)), 61)
 
+    def test_wildcard_lookup_type_metadata(self):
+        with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_lookup_wildcard.xml") as f:
+            contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/GetMetadata.ashx",
+                body=contents,
+                status=200,
+            )
+            lookup_values = self.session.get_lookup_values(resource="Property", lookup_name="*")
+
+        self.assertEqual(
+            [(x["Lookup"], x["Value"]) for x in lookup_values],
+            [
+                ("State", "AL"),
+                ("State", "CT"),
+                ("PropertyType", "COML"),
+                ("PropertyType", "RES"),
+                ("PropertyType", "RNT"),
+            ],
+        )
+
     def test_object_metadata(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_objects.xml") as f:
             contents = "".join(f.readlines())

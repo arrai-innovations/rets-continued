@@ -1,0 +1,13 @@
+<RETS ReplyCode="0" ReplyText="Operation Success.">
+<METADATA-LOOKUP_TYPE Resource="Property" Lookup="State" Version="1.00.00001" Date="2026-10-09T00:00:00Z">
+<COLUMNS>	LongValue	ShortValue	Value	</COLUMNS>
+<DATA>	Alabama	AL	AL	</DATA>
+<DATA>	Connecticut	CT	CT	</DATA>
+</METADATA-LOOKUP_TYPE>
+<METADATA-LOOKUP_TYPE Resource="Property" Lookup="PropertyType" Version="1.00.00001" Date="2026-10-09T00:00:00Z">
+<COLUMNS>	LongValue	ShortValue	Value	</COLUMNS>
+<DATA>	Commercial	COML	COML	</DATA>
+<DATA>	Residential	RES	RES	</DATA>
+<DATA>	Rental	RNT	RNT	</DATA>
+</METADATA-LOOKUP_TYPE>
+</RETS>
