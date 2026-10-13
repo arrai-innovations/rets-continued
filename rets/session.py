@@ -147,8 +147,9 @@ class Session:
 
     def login(self):
         """
-        Login to the RETS board and return an instance of Bulletin
-        :return: Bulletin instance
+        Logs in to the RETS server, storing the session cookie, server version and capability URLs, then calls
+        the Action transaction if the server offers one.
+        :return: True
         """
         response = self._request("Login")
         parser = OneXLogin()
