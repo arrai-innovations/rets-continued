@@ -66,7 +66,6 @@ class Session:
         :param search_parser: A search parser object that implements a method named generator. The same
         object is handed to every search this session makes, so it should not carry state between them.
         """
-        self.client = requests.Session()
         self.login_url = login_url
         self.username = username
         self.password = password
@@ -82,7 +81,6 @@ class Session:
 
         self.metadata_responses = {}  # Keep metadata in the session instance to avoid consecutive calls to RETS
         self.metadata_format = metadata_format
-        self.capabilities = {}
 
         self.client = requests.Session()
         self.session_id = None
