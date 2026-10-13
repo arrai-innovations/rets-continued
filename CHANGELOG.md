@@ -1,5 +1,9 @@
 # RETS Changelog
 
+## 2.0.1
+
+* Parse COMPACT-DECODED metadata responses that contain more than one metadata element, such as wildcard lookups.
+
 ## 2.0.0
 
 Revive the upstream code and modernize for current Python releases.
