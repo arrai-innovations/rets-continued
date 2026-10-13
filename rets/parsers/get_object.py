@@ -1,10 +1,15 @@
 import hashlib
+import re
 
 import xmltodict
 
 from rets.exceptions import ParseError
 from rets.exceptions import RETSException
 from rets.parsers.base import Base
+
+
+LINE_BREAK = re.compile(r"\r?\n")
+HEADER_END = re.compile(r"\r?\n\r?\n")
 
 
 class ObjectParser(Base):
@@ -54,18 +59,24 @@ class MultipleObjectParser(ObjectParser):
         if response.content is None:
             return
 
-        response_string = response.content
+        # Decode for string operations. latin-1 maps each byte to one character, so encoding a part
+        # back gives exactly the bytes the server sent.
+        response_string = response.content.decode("latin-1")
 
-        # Python3 returns bytes, decode for string operations
-        response_string = response_string.decode("latin-1")
+        for part in response_string.split(boundary):
+            if part.startswith("--"):
+                break  # The close delimiter. Anything after it is epilogue.
 
-        #  help bad responses be more multipart compliant
-        whole_body = response_string.strip("\r\n")
-        no_front_boundary = whole_body.strip(boundary)
-        # The boundary comes with some characters
+            # The delimiter line ends in a line break, and the line break ahead of the next delimiter belongs to
+            # that delimiter (RFC 2046). Remove exactly one of each, since a binary body can itself end in CR or
+            # LF bytes. Some servers send bare LFs rather than CRLFs.
+            part = part.removeprefix("\r\n") if part.startswith("\r\n") else part.removeprefix("\n")
+            part = part.removesuffix("\r\n") if part.endswith("\r\n") else part.removesuffix("\n")
 
-        for part in no_front_boundary.split(boundary):
-            yield part.strip("\r\n")
+            # Skip the empty preamble before the first delimiter. A server that leaves out the first
+            # delimiter still has its first part read.
+            if part.strip():
+                yield part
 
     def parse_image_response(self, response):
         """
@@ -83,18 +94,22 @@ class MultipleObjectParser(ObjectParser):
 
         # go through each part of the multipart message
         for part in multi_parts:
-            clean_part = part.strip("\r\n\r\n")  # noqa: B005
-            if "\r\n\r\n" in clean_part:
-                header, body = clean_part.split("\r\n\r\n", 1)
+            # The headers end at the first blank line, whichever line endings the server uses.
+            if HEADER_END.search(part):
+                header, body = HEADER_END.split(part, maxsplit=1)
             else:
-                header = clean_part
+                header = part
                 body = None
-            part_header_dict = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in header.split("\r\n"))}
+            part_header_dict = {
+                k.strip(): v.strip() for k, v in (h.split(":", 1) for h in LINE_BREAK.split(header) if ":" in h)
+            }
 
             # Some multipart requests respond with a text/XML part stating an error
             if "xml" in part_header_dict.get("Content-Type", ""):
                 # Got an XML response, likely an error code.
                 # Some rets servers give characters after the closing brace.
+                if not body:
+                    raise ParseError("Got an XML part in a multipart response, but it has no body")
                 body = body[: body.index("/>") + 2] if "/>" in body else body
                 xml = xmltodict.parse(body)
                 try:

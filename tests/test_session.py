@@ -182,8 +182,23 @@ class SessionTester(unittest.TestCase):
                 headers=multi_headers,
             )
 
-            objs1 = self.session.get_object(resource="Property", object_type="Photo", content_ids="1", location="1")
-            self.assertEqual(len(list(objs1)), 41)
+            objs1 = list(
+                self.session.get_object(resource="Property", object_type="Photo", content_ids="1", location="1")
+            )
+            self.assertEqual(len(objs1), 41)
+
+        # This server separates lines with bare LFs, which used to fold every header into content_type.
+        self.assertEqual(
+            {k: objs1[0][k] for k in ["content_type", "content_id", "object_id", "location", "preferred", "content"]},
+            {
+                "content_type": "image/jpeg",
+                "content_id": "1256671",
+                "object_id": "1",
+                "location": "http://cdn.resize.sparkplatform.com/gcar/1024x768/true/20161216161456298557000000-o.jpg",
+                "preferred": "1",
+                "content": None,
+            },
+        )
 
     def test_preferred_object(self):
         with open("tests/rets_responses/GetObject_multipart.byte", "rb") as f:

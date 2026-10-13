@@ -257,6 +257,52 @@ class LogMessageTester(unittest.TestCase):
         self.assertIn("This search parser has parsed 2 rows in all", [r.getMessage() for r in logs.records])
 
 
+class MultipartObjectTester(unittest.TestCase):
+    """Splitting a multipart GetObject response into its objects without altering their content"""
+
+    def parse(self, body):
+        response = FakeResponse(
+            body.decode("latin-1"),
+            headers={"Content-Type": 'multipart/parallel; boundary="BOUND"'},
+            content=body,
+        )
+        return list(MultipleObjectParser().parse_image_response(response))
+
+    def test_binary_content_ending_in_line_breaks(self):
+        # Only the CRLF ahead of the delimiter belongs to the multipart framing; the rest is the object's own.
+        content = b"\r\n\x89PNG\x00\xaeB`\x82\r\n\n"
+        objs = self.parse(b"\r\n--BOUND\r\nContent-ID: 1\r\nObject-ID: 1\r\n\r\n" + content + b"\r\n--BOUND--\r\n")
+
+        self.assertEqual(len(objs), 1)
+        self.assertEqual(objs[0]["content"], content)
+
+    def test_bare_lf_line_endings(self):
+        objs = self.parse(
+            b"\n--BOUND\n"
+            b"Content-Type: image/jpeg\nContent-ID: 1\nObject-ID: 1\nLocation: http://example.com/1.jpg\n\n\n"
+            b"--BOUND\n"
+            b"Content-Type: image/jpeg\nContent-ID: 1\nObject-ID: 2\n\nimagedata\n"
+            b"--BOUND--\n"
+        )
+
+        self.assertEqual(
+            [(o["content_type"], o["object_id"], o["location"], o["content"]) for o in objs],
+            [
+                ("image/jpeg", "1", "http://example.com/1.jpg", None),
+                ("image/jpeg", "2", None, b"imagedata"),
+            ],
+        )
+
+    def test_epilogue_is_ignored(self):
+        objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\ndata\r\n--BOUND--\r\nan epilogue\r\n")
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"data")])
+
+    def test_xml_part_without_a_body(self):
+        with self.assertRaises(ParseError):
+            self.parse(b"--BOUND\r\nContent-Type: text/xml\r\n--BOUND--\r\n")
+
+
 class LoginParserTester(unittest.TestCase):
     """Sorting the login response's key-value lines into capabilities and details"""
 
