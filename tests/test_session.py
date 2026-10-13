@@ -474,6 +474,18 @@ class SessionTester(unittest.TestCase):
             table = self.session.get_table_metadata(resource="Property", resource_class="RES")
 
         self.assertEqual(len(list(table)), 208)
+        # A value containing spaces and an empty StandardName stay in their own columns.
+        self.assertEqual(
+            {k: table[1][k] for k in ["SystemName", "StandardName", "LongName", "DBName", "DataType", "InKeyIndex"]},
+            {
+                "SystemName": "ActiveOpenHouseCount",
+                "StandardName": "",
+                "LongName": "Active Open House Count",
+                "DBName": "R598",
+                "DataType": "Int",
+                "InKeyIndex": "0",
+            },
+        )
 
     def test_lookup_type_metadata(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_lookup.xml") as f:

@@ -30,9 +30,8 @@ class Base:
         :return: dict
         """
         if delimiter:
-            return {  # noqa: C416
-                k: v for k, v in zip(columns_string.split(delimiter), dict_string.split(delimiter))
-            }
+            # COMPACT lines open and close with the delimiter, which leaves an unnamed column at each end.
+            return {k: v for k, v in zip(columns_string.split(delimiter), dict_string.split(delimiter)) if k != ""}
         else:
             return {k: v for k, v in zip(columns_string.split(), dict_string.split())}  # noqa: C416
 

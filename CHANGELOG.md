@@ -9,6 +9,7 @@
 * Tolerate responses missing a Content-Type header, empty search rows, and empty delimiters.
 * Validate search arguments when `search()` is called, rather than when its results are first iterated.
 * Raise `HTTPException` with the actual status code for refused requests, instead of reporting every 400 as a 401 `NotLoggedIn`.
+* Split COMPACT-DECODED metadata rows on tabs, so that values containing spaces and empty fields stay in their own columns.
 
 ## 2.0.1
 

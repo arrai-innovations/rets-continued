@@ -103,6 +103,50 @@ class CompactSystemMetadataTester(unittest.TestCase):
         )
 
 
+class CompactDataMetadataTester(unittest.TestCase):
+    """Splitting COMPACT-DECODED metadata rows into their columns"""
+
+    def parse(self, body):
+        response = FakeResponse(
+            '<RETS ReplyCode="0"><METADATA-LOOKUP_TYPE Resource="Property" Lookup="Area">'
+            f"{body}"
+            "</METADATA-LOOKUP_TYPE></RETS>"
+        )
+        return list(CompactMetadata().parse(response=response, metadata_type="METADATA-LOOKUP_TYPE"))
+
+    def test_values_containing_spaces(self):
+        self.assertEqual(
+            self.parse("<COLUMNS>\tLongValue\tShortValue\tValue\t</COLUMNS><DATA>\tNorth Side\tN Side\tN\t</DATA>"),
+            [
+                {
+                    "LongValue": "North Side",
+                    "ShortValue": "N Side",
+                    "Value": "N",
+                    "Resource": "Property",
+                    "Lookup": "Area",
+                }
+            ],
+        )
+
+    def test_empty_fields(self):
+        # Empty fields at the start, middle and end must not shift the values after them.
+        self.assertEqual(
+            self.parse(
+                "<COLUMNS>\tLongValue\tShortValue\tValue\t</COLUMNS><DATA>\t\t\tN\t</DATA><DATA>\tNorth\t\t\t</DATA>"
+            ),
+            [
+                {"LongValue": "", "ShortValue": "", "Value": "N", "Resource": "Property", "Lookup": "Area"},
+                {"LongValue": "North", "ShortValue": "", "Value": "", "Resource": "Property", "Lookup": "Area"},
+            ],
+        )
+
+    def test_empty_data_element(self):
+        self.assertEqual(
+            self.parse("<COLUMNS>\tLongValue\tValue\t</COLUMNS><DATA></DATA>"),
+            [{"Resource": "Property", "Lookup": "Area"}],
+        )
+
+
 class LoginParserTester(unittest.TestCase):
     """Sorting the login response's key-value lines into capabilities and details"""
 
