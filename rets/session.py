@@ -55,7 +55,8 @@ class Session:
         :param username: The username for the RETS feed
         :param password: The password for the RETS feed
         :param http_auth: digest or basic. If the server rejects digest at login, the session retries with basic,
-        but only over https, since basic auth sends the password unencrypted.
+        but only over https, since basic auth sends the password unencrypted. Using basic auth with any plain
+        http URL logs a warning, once per session.
         :param user_agent: The useragent for the RETS feed
         :param user_agent_password: The useragent password for the RETS feed. Requires version.
         :param follow_redirects: Follow HTTP redirects or not. The default is to follow them, True.
@@ -85,6 +86,7 @@ class Session:
         self.client = requests.Session()
         self.session_id = None
         self._logged_in = False
+        self._warned_basic_auth_over_http = False
         if self.http_authentication == "basic":
             self.client.auth = HTTPBasicAuth(self.username, self.password)
         else:
@@ -500,6 +502,9 @@ class Session:
             ua_digest = self._user_agent_digest_hash()
             options["headers"]["RETS-UA-Authorization"] = f"Digest {ua_digest!s}"
 
+        if self.http_authentication == "basic" and urlparse(url).scheme != "https":
+            self._warn_basic_auth_over_http(url)
+
         if self.use_post_method and capability != "Action":  # Action Requests should always be GET
             query = options.get("query")
             response = self.client.post(
@@ -541,6 +546,22 @@ class Session:
         self._raise_for_status(response=response, capability=capability)
 
         return response
+
+    def _warn_basic_auth_over_http(self, url):
+        """
+        Warn, once per session, that basic auth is about to send the password unencrypted
+        :param url: The plain HTTP URL being requested
+        :return: None
+        """
+        if self._warned_basic_auth_over_http:
+            return
+
+        self._warned_basic_auth_over_http = True
+        logger.warning(
+            "Sending the RETS password with basic authentication over plain HTTP to %s, where anyone on the network "
+            "path can read it. Use https URLs to keep it private.",
+            urlparse(url).hostname,
+        )
 
     def _raise_for_status(self, response, capability):
         """

@@ -24,6 +24,7 @@
 * When a `with Session(...)` block raises and logging out then fails as well, raise the block's error rather than the logout's, and log the logout failure as a warning.
 * Treat logging out as done when the server's login response offers no Logout capability, instead of raising `NotLoggedIn`, which made every `with Session(...)` block against such a server fail on exit. Logging out before logging in still raises.
 * Forget the login once logging out succeeds: the session drops its capabilities, session ID and cookies, so later requests raise `NotLoggedIn` instead of using a session the server has ended, and leaving a `with Session(...)` block that already logged out no longer logs out again.
+* Log a warning, once per session, when basic authentication is about to send the password to a plain http URL. This covers an explicit `http_auth="basic"` with an http login URL, and a session that fell back to basic over an https login and is then given http URLs for other transactions.
 
 ## 2.0.1
 

@@ -1044,6 +1044,76 @@ class LogoutStateTester(unittest.TestCase):
         self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
 
 
+class BasicAuthOverHttpTester(unittest.TestCase):
+    """Warning when basic authentication would send the password over plain HTTP"""
+
+    WARNING = "basic authentication over plain HTTP"
+
+    def setUp(self):
+        super().setUp()
+        with open("tests/rets_responses/Login.xml") as f:
+            self.login_contents = "".join(f.readlines())
+
+    def make_session(self, login_url, http_auth):
+        return Session(
+            login_url=login_url,
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+            http_auth=http_auth,
+        )
+
+    def test_warns_once_for_basic_auth_over_http(self):
+        session = self.make_session("http://server.rets.com/rets/Login.ashx", http_auth="basic")
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+            resps.add(resps.POST, "http://server.rets.com/rets/Logout.ashx", body="", status=200)
+
+            with self.assertLogs("rets", level="WARNING") as logs:
+                session.login()
+                session.logout()
+
+        warnings = [line for line in logs.output if self.WARNING in line]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("server.rets.com", warnings[0])
+        self.assertNotIn("retspassword", warnings[0])
+
+    def test_no_warning_for_basic_auth_over_https(self):
+        session = self.make_session("https://server.rets.com/rets/Login.ashx", http_auth="basic")
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+
+            with self.assertNoLogs("rets", level="WARNING"):
+                session.login()
+
+    def test_no_warning_for_digest_auth_over_http(self):
+        session = self.make_session("http://server.rets.com/rets/Login.ashx", http_auth="digest")
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+
+            with self.assertNoLogs("rets", level="WARNING"):
+                session.login()
+
+    def test_warns_when_a_basic_auth_fallback_meets_an_http_capability(self):
+        # The login is https, but the server lists plain HTTP URLs for its other transactions.
+        session = self.make_session("https://server.rets.com/rets/Login.ashx", http_auth="digest")
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+            resps.add(resps.POST, "http://server.rets.com/rets/Logout.ashx", body="", status=200)
+
+            with self.assertNoLogs("rets", level="WARNING"):
+                session.login()
+            with self.assertLogs("rets", level="WARNING") as logs:
+                session.logout()
+
+        self.assertIn(self.WARNING, logs.output[0])
+
+
 class LoginAuthFallbackTester(unittest.TestCase):
     """Falling back from digest to basic authentication when the server rejects digest"""
 
