@@ -128,7 +128,7 @@ class SessionTester(unittest.TestCase):
             )
             obj_l = list(objs)
             self.assertEqual(len(obj_l), 1)
-            self.assertEqual(obj_l[0]["content_md5"], "396106a133a23e10f6926a82d219edbc")
+            self.assertEqual(obj_l[0]["content_md5"], "2174ba5b342a04604adcdddf2775b19d")
 
             resps.add(
                 resps.POST,
@@ -138,8 +138,23 @@ class SessionTester(unittest.TestCase):
                 headers=multi_headers,
             )
 
-            objs1 = self.session.get_object(resource="Property", object_type="Photo", content_ids="1")
-            self.assertEqual(len(list(objs1)), 9)
+            objs1 = list(self.session.get_object(resource="Property", object_type="Photo", content_ids="1"))
+            # Checksums of the JPEGs in the fixture. The trailing "Object not found" part yields no object.
+            self.assertEqual(
+                [obj["content_md5"] for obj in objs1],
+                [
+                    "2174ba5b342a04604adcdddf2775b19d",
+                    "2174ba5b342a04604adcdddf2775b19d",
+                    "76780bfc931179db9b8f39be77287477",
+                    "92276e2f22643ce3d4605d2dac5c0f81",
+                    "621acfa042ea2c433f2c4ef23c553bb5",
+                    "40c1da31201c9df754ed64b456f9b05e",
+                    "48d0d06af1c922a1182c7d7fe0a06f89",
+                    "76bda7db20cd096921ba1603275cdf15",
+                    "33b342ca422b5ae6bb2ca1619e1057c3",
+                ],
+            )
+            self.assertEqual([obj["object_id"] for obj in objs1], [str(i) for i in range(9)])
 
     def test_get_object_without_content_type(self):
         with open("tests/rets_responses/GetObject.byte", "rb") as f:
@@ -159,7 +174,7 @@ class SessionTester(unittest.TestCase):
             objs = list(self.session.get_object(resource="Property", object_type="Photo", content_ids="1"))
 
         self.assertEqual(len(objs), 1)
-        self.assertEqual(objs[0]["content_md5"], "396106a133a23e10f6926a82d219edbc")
+        self.assertEqual(objs[0]["content_md5"], "2174ba5b342a04604adcdddf2775b19d")
 
     def test_get_object_location1(self):
         with open("tests/rets_responses/GetObject_multipart_Location1.byte", "rb") as f:
