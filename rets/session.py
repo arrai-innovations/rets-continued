@@ -86,6 +86,7 @@ class Session:
 
         self.client = requests.Session()
         self.session_id = None
+        self._logged_in = False
         if self.http_authentication == "basic":
             self.client.auth = HTTPBasicAuth(self.username, self.password)
         else:
@@ -161,6 +162,7 @@ class Session:
 
         for k, v in parser.capabilities.items():
             self.add_capability(k, v)
+        self._logged_in = True
 
         if self.capabilities.get("Action"):
             self._request("Action")
@@ -171,6 +173,13 @@ class Session:
         Logs out of the RETS feed destroying the HTTP session.
         :return: True
         """
+        if self._logged_in and "Logout" not in self.capabilities:
+            # Not every server offers a Logout transaction. There is nothing to ask it, and the session
+            # it holds will end with the server's own timeout. Before a login, this falls through to
+            # _request, which reports the missing login.
+            logger.debug("The RETS server has no Logout capability, so its session is left to expire.")
+            return True
+
         logger.debug("Logging out of RETS session.")
         self._request(capability="Logout")
         return True

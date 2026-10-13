@@ -896,6 +896,43 @@ class ContextManagerTester(unittest.TestCase):
         self.assertEqual(urls[-1], self.LOGOUT_URL)
 
 
+class NoLogoutCapabilityTester(unittest.TestCase):
+    """Servers whose login response offers no Logout transaction"""
+
+    def setUp(self):
+        super().setUp()
+        with open("tests/rets_responses/Login.xml") as f:
+            self.login_contents = "".join(line for line in f if not line.startswith("Logout="))
+        self.session = Session(
+            login_url="http://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            version="RETS/1.7.2",
+        )
+
+    def test_with_block(self):
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+
+            with self.session as s:
+                self.assertNotIn("Logout", s.capabilities)
+
+            # Leaving the block makes no request, rather than raising NotLoggedIn.
+            self.assertEqual(len(resps.calls), 1)
+
+    def test_logout(self):
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=self.login_contents, status=200)
+            self.session.login()
+
+            self.assertTrue(self.session.logout())
+            self.assertEqual(len(resps.calls), 1)
+
+    def test_logout_before_login(self):
+        # Without a login there is no telling whether the server offers Logout, so this is still a mistake.
+        with self.assertRaises(NotLoggedIn):
+            self.session.logout()
+
+
 class LoginAuthFallbackTester(unittest.TestCase):
     """Falling back from digest to basic authentication when the server rejects digest"""
 
