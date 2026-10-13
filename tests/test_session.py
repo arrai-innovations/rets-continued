@@ -6,6 +6,7 @@ import responses
 
 from rets.exceptions import HTTPException
 from rets.exceptions import NotLoggedIn
+from rets.exceptions import ParseError
 from rets.exceptions import RETSException
 from rets.parsers.search import OneXSearchCursor
 from rets.session import Session
@@ -454,11 +455,60 @@ class SessionTester(unittest.TestCase):
             )
             self.session.get_table_metadata(resource="Property", resource_class="RES")
 
-        self.assertIn("METADATA-TABLE:Property:RES", list(self.session.metadata_responses.keys()))
+        self.assertIn("COMPACT-DECODED:METADATA-TABLE:Property:RES", list(self.session.metadata_responses.keys()))
 
         # Subsequent call without RequestMock should fail unless we get the saved response from metadata_responses
         table = self.session.get_table_metadata(resource="Property", resource_class="RES")
         self.assertEqual(len(list(table)), 208)
+
+    def test_cache_metadata_after_format_change(self):
+        with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_resources.xml") as f:
+            compact_resources = "".join(f.readlines())
+
+        with open("tests/rets_responses/Errors/20514.xml") as f:
+            dtd_error = "".join(f.readlines())
+
+        with open("tests/rets_responses/STANDARD-XML/GetMetadata_classes.xml") as f:
+            standard_classes = "".join(f.readlines())
+
+        with open("tests/rets_responses/STANDARD-XML/GetMetadata_resources.xml") as f:
+            standard_resources = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            for body in [compact_resources, dtd_error, standard_classes, standard_resources]:
+                resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=body, status=200)
+
+            self.assertEqual(len(self.session.get_resource_metadata()), 6)
+            # The server rejects COMPACT-DECODED for classes, moving the session over to STANDARD-XML.
+            self.session.get_class_metadata(resource="Agent")
+            self.assertEqual(self.session.metadata_format, "STANDARD-XML")
+
+            # The cached COMPACT-DECODED resources can't be read by the STANDARD-XML parser, so they are
+            # requested again in the new format.
+            resources = self.session.get_resource_metadata()
+
+        self.assertEqual([r["ResourceID"] for r in resources], ["OpenHouse", "Property"])
+
+    def test_unparseable_metadata_is_not_cached(self):
+        self.session.metadata_format = "STANDARD-XML"
+        with open("tests/rets_responses/STANDARD-XML/GetMetadata_resources.xml") as f:
+            contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/GetMetadata.ashx",
+                body='<RETS ReplyCode="0"><METADATA><METADATA-RESOURCE Version="1"/></METADATA></RETS>',
+                status=200,
+            )
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=contents, status=200)
+
+            with self.assertRaises(ParseError):
+                self.session.get_resource_metadata()
+            self.assertEqual(self.session.metadata_responses, {})
+
+            # The next call asks the server again, rather than failing on the saved response.
+            self.assertEqual(len(self.session.get_resource_metadata()), 2)
 
     def test_table_metadata(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_table.xml") as f:

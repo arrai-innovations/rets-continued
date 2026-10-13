@@ -225,8 +225,9 @@ class Session:
         :param metadata_type: The RETS metadata type
         :return: list, or a dict of lists keyed by name when the server answers a wildcard request
         """
-        # If this metadata _request has already happened, returned the saved result.
-        key = f"{metadata_type!s}:{meta_id!s}"
+        # If this metadata _request has already happened, returned the saved result. The format is part of
+        # the key because a response can only be read by the parser for the format it was requested in.
+        key = f"{self.metadata_format!s}:{metadata_type!s}:{meta_id!s}"
         if key in self.metadata_responses and self.cache_metadata:
             response = self.metadata_responses[key]
         else:
@@ -260,10 +261,13 @@ class Session:
                 "20513",
                 "20514",
             ]:
-                self.metadata_responses.pop(key, None)
                 self.metadata_format = "STANDARD-XML"
                 return self._make_metadata_request(meta_id=meta_id, metadata_type=metadata_type)
             raise RETSException(rets_er.reply_text, rets_er.reply_code)
+        except Exception:
+            # A response that could not be parsed would fail the same way on every later call.
+            self.metadata_responses.pop(key, None)
+            raise
 
     def get_preferred_object(self, resource, object_type, content_id, location=0):
         """
