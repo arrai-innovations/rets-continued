@@ -2,14 +2,17 @@ class RETSException(Exception):  # noqa: N818
     """The RETS Server Returned an Issue"""
 
     def __init__(self, reply_text=None, reply_code=None):
+        super().__init__(reply_text, reply_code)
         self.reply_code = reply_code
         self.reply_text = reply_text
 
-    def __repr__(self):
-        return self.reply_text
-
     def __str__(self):
-        return self.reply_text
+        # str() must return a string, or the exception cannot even be printed in a traceback.
+        if self.reply_text is not None:
+            return str(self.reply_text)
+        if self.reply_code is not None:
+            return f"The RETS server returned reply code {self.reply_code!s}."
+        return "The RETS server reported an error."
 
 
 class HTTPException(Exception):  # noqa: N818

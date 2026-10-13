@@ -29,6 +29,7 @@
 * Stream search results. The search parser read the whole response into memory before yielding its first row, and kept every parsed row attached to the document until the end. It now parses each chunk as it arrives and lets each row go once it has been yielded. A search error reply code is raised as soon as the response opens, before any rows, and a search the caller stops iterating early closes its connection.
 * Give the `RETSException` raised for a search error reply code its `reply_code` and `reply_text`, like every other `RETSException`, so callers can tell search errors apart. Its message is now the server's reply text, without the "RETS Error <code>:" prefix.
 * Give `HTTPException` a `status_code` attribute holding the HTTP status the server answered with, so callers no longer have to read it out of the message.
+* Let a `RETSException` without reply text be printed: its `str()` and `repr()` returned `None`, which raised `TypeError` and left tracebacks showing `<exception str() failed>`. It now falls back to a message naming the reply code. Its `repr()` is the standard `RETSException('text', 'code')` form rather than the bare reply text.
 
 ## 2.0.1
 
