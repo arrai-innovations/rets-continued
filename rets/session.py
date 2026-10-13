@@ -50,13 +50,14 @@ class Session:
         """
         Session constructor
         :param login_url: The login URL for the RETS feed
-        :param version: The RETS version to use. Default is 1.5
+        :param version: The RETS version to use. By default it is taken from the server's login response, but it
+        must be given when using user_agent_password.
         :param username: The username for the RETS feed
         :param password: The password for the RETS feed
         :param http_auth: digest or basic. If the server rejects digest at login, the session retries with basic,
         but only over https, since basic auth sends the password unencrypted.
         :param user_agent: The useragent for the RETS feed
-        :param user_agent_password: The useragent password for the RETS feed
+        :param user_agent_password: The useragent password for the RETS feed. Requires version.
         :param follow_redirects: Follow HTTP redirects or not. The default is to follow them, True.
         :param use_post_method: Use HTTP POST method when making requests instead of GET. The default is True
         :param metadata_format: COMPACT_DECODED or STANDARD_XML. The client will attempt to set this automatically
@@ -546,9 +547,9 @@ class Session:
         """
         if not self.version:
             raise MissingVersion(
-                "A version is required for user agent auth. The RETS server should set this "
-                "automatically but it has not. Please instantiate the session with a version argument "
-                "to provide the version."
+                "A RETS version is required for user agent authentication. The version is part of the digest "
+                "sent with every request, including the login, so it is needed before the server can report "
+                'its own. Pass the version your RETS server uses to the Session, such as version="RETS/1.7.2".'
             )
         version_number = self.version.strip("RETS/")
         user_str = f"{self.user_agent!s}:{self.user_agent_password!s}".encode()

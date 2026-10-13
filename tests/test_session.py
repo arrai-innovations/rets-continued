@@ -658,17 +658,23 @@ class SessionTester(unittest.TestCase):
         self.session.user_agent_password = "testing"  # noqa: S105
         self.assertIsNotNone(self.session._user_agent_digest_hash())
 
-    def test_agent_digest_hash_without_a_version(self):
-        session = Session(login_url="http://server.rets.com/rets/Login.ashx", username="retsuser")
-        session.user_agent_password = "testing"  # noqa: S105
+    def test_user_agent_password_without_a_version(self):
+        session = Session(
+            login_url="http://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            user_agent_password="testing",  # noqa: S106
+        )
 
-        with self.assertRaises(MissingVersion) as caught:
-            session._user_agent_digest_hash()
+        # The login request already carries the digest, so it fails before anything is sent.
+        with responses.RequestsMock() as resps, self.assertRaises(MissingVersion) as caught:
+            session.login()
+        self.assertEqual(len(resps.calls), 0)
 
         self.assertEqual(
             str(caught.exception),
-            "A version is required for user agent auth. The RETS server should set this automatically but it has "
-            "not. Please instantiate the session with a version argument to provide the version.",
+            "A RETS version is required for user agent authentication. The version is part of the digest sent with "
+            "every request, including the login, so it is needed before the server can report its own. Pass the "
+            'version your RETS server uses to the Session, such as version="RETS/1.7.2".',
         )
 
     def test_session_cookie_name(self):

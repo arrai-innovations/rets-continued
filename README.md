@@ -143,7 +143,7 @@ All requests to a RETS server must be authenticated. The login credential fields
 - version: The RETS version is typically provided from the server at login. 
 You can set the version here to override the value provided by the server
 - user_agent: The useragent for the RETS feed. Not all servers require this.
-- user_agent_password: The useragent password for the RETS feed. Not all servers require this.
+- user_agent_password: The useragent password for the RETS feed. Not all servers require this. When it is set, version must be set too, since the version is part of the user agent digest sent with the login request.
 - follow_redirects: Follow HTTP redirects. The default True.
 - use_post_method: Use HTTP POST method when making requests instead of GET. The default is True
 - metadata_format: COMPACT_DECODED or STANDARD_XML. The client will attempt to set this automatically based on response codes from the RETS server.
