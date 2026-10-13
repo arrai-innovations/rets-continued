@@ -53,6 +53,8 @@ class Session:
         :param version: The RETS version to use. Default is 1.5
         :param username: The username for the RETS feed
         :param password: The password for the RETS feed
+        :param http_auth: digest or basic. If the server rejects digest at login, the session retries with basic,
+        but only over https, since basic auth sends the password unencrypted.
         :param user_agent: The useragent for the RETS feed
         :param user_agent_password: The useragent password for the RETS feed
         :param follow_redirects: Follow HTTP redirects or not. The default is to follow them, True.
@@ -486,6 +488,14 @@ class Session:
         # Both codes count as an auth challenge on Login, since a server that cannot handle the
         # digest attempt may reject it with a 400 rather than a 401.
         if capability == "Login" and response.status_code in [400, 401] and self.http_authentication == "digest":
+            if urlparse(url).scheme != "https":
+                # Basic auth only base64 encodes the password, so over plain HTTP anyone on the path could
+                # read it. Leave that trade-off to the caller rather than downgrading on their behalf.
+                raise NotLoggedIn(
+                    "The RETS server rejected digest authentication. Not falling back to basic authentication, "
+                    "which would send the password unencrypted over HTTP. Use an https login URL, or pass "
+                    'http_auth="basic" to the Session to send it anyway.'
+                )
             # Fall back to base64 encoding auth method and try again
             self.http_authentication = "basic"
             self.client.auth = HTTPBasicAuth(self.username, self.password)

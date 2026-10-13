@@ -15,6 +15,7 @@
 * Stop auto-offsetting when the server truncates a search response that holds no rows, rather than requesting the same page forever, and follow truncated searches made with `limit=None` instead of failing with a `TypeError`.
 * Honour `follow_redirects`, which was previously ignored so that redirects were always followed. When it is `False`, a redirect raises `HTTPException` naming where the server pointed, instead of handing the redirect body to the parsers.
 * Accept numeric strings in `$gte` and `$lte` search filters, which passed validation and then failed to format, and report any non-numeric value, such as `None`, as a `ValueError` rather than a `TypeError`.
+* **Security:** only fall back from digest to basic authentication at login when the login URL uses https. Basic authentication sends the password unencrypted, so over plain http the login now fails with `NotLoggedIn` instead. Servers that only accept basic authentication over http need `http_auth="basic"` passed to the Session explicitly.
 
 ## 2.0.1
 

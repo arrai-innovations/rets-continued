@@ -811,7 +811,7 @@ class LoginAuthFallbackTester(unittest.TestCase):
             contents = "".join(f.readlines())
 
         session = Session(
-            login_url="http://server.rets.com/rets/Login.ashx",
+            login_url="https://server.rets.com/rets/Login.ashx",
             username="retsuser",
             password="retspassword",  # noqa: S106
             version="RETS/1.7.2",
@@ -819,8 +819,8 @@ class LoginAuthFallbackTester(unittest.TestCase):
         self.assertEqual(session.http_authentication, "digest")
 
         with responses.RequestsMock() as resps:
-            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=status)
-            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=contents, status=200)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=status)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body=contents, status=200)
             session.login()
 
         return session
@@ -840,6 +840,24 @@ class LoginAuthFallbackTester(unittest.TestCase):
 
     def test_gives_up_when_basic_is_also_rejected(self):
         session = Session(
+            login_url="https://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+
+            with self.assertRaises(NotLoggedIn) as caught:
+                session.login()
+
+        self.assertIn("basic or digest", str(caught.exception))
+
+    def test_no_fallback_over_http(self):
+        # Retrying with basic auth would put the password on the wire in cleartext.
+        session = Session(
             login_url="http://server.rets.com/rets/Login.ashx",
             username="retsuser",
             password="retspassword",  # noqa: S106
@@ -848,12 +866,33 @@ class LoginAuthFallbackTester(unittest.TestCase):
 
         with responses.RequestsMock() as resps:
             resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=401)
-            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=401)
 
             with self.assertRaises(NotLoggedIn) as caught:
                 session.login()
 
-        self.assertIn("basic or digest", str(caught.exception))
+            self.assertEqual(len(resps.calls), 1)
+            self.assertFalse(resps.calls[0].request.headers.get("Authorization", "").startswith("Basic "))
+        self.assertEqual(session.http_authentication, "digest")
+        self.assertIn('http_auth="basic"', str(caught.exception))
+
+    def test_explicit_basic_over_http(self):
+        with open("tests/rets_responses/Login.xml") as f:
+            contents = "".join(f.readlines())
+
+        session = Session(
+            login_url="http://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+            http_auth="basic",
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body=contents, status=200)
+            session.login()
+
+            self.assertTrue(resps.calls[0].request.headers["Authorization"].startswith("Basic "))
+        self.assertIn("Search", session.capabilities)
 
 
 class Session15Tester(unittest.TestCase):
