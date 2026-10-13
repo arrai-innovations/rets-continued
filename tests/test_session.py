@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import responses
 
 from rets.exceptions import HTTPException
+from rets.exceptions import MissingVersion
 from rets.exceptions import NotLoggedIn
 from rets.exceptions import ParseError
 from rets.exceptions import RETSException
@@ -656,6 +657,19 @@ class SessionTester(unittest.TestCase):
     def test_agent_digest_hash(self):
         self.session.user_agent_password = "testing"  # noqa: S105
         self.assertIsNotNone(self.session._user_agent_digest_hash())
+
+    def test_agent_digest_hash_without_a_version(self):
+        session = Session(login_url="http://server.rets.com/rets/Login.ashx", username="retsuser")
+        session.user_agent_password = "testing"  # noqa: S105
+
+        with self.assertRaises(MissingVersion) as caught:
+            session._user_agent_digest_hash()
+
+        self.assertEqual(
+            str(caught.exception),
+            "A version is required for user agent auth. The RETS server should set this automatically but it has "
+            "not. Please instantiate the session with a version argument to provide the version.",
+        )
 
     def test_session_cookie_name(self):
         self.assertEqual(self.session.session_id, "zacqcc1gjhkmazjznjmyrinq")

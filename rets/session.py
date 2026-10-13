@@ -546,8 +546,8 @@ class Session:
         """
         if not self.version:
             raise MissingVersion(
-                "A version is required for user agent auth. The RETS server should set this"
-                "automatically but it has not. Please instantiate the session with a version argument"
+                "A version is required for user agent auth. The RETS server should set this "
+                "automatically but it has not. Please instantiate the session with a version argument "
                 "to provide the version."
             )
         version_number = self.version.strip("RETS/")
