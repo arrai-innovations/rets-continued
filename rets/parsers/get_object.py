@@ -110,10 +110,7 @@ class MultipleObjectParser(ObjectParser):
         :param response: The response from the feed
         :return: list of SingleObjectParser
         """
-        if "xml" in response.headers.get("Content-Type", ""):
-            # Got an XML response, likely an error code.
-            xml = xmltodict.parse(response.text)
-            self.analyze_reply_code(xml_response_dict=xml)
+        self.analyze_xml_response(response)
 
         multi_parts = self._get_multiparts(response)
 
@@ -155,10 +152,7 @@ class SingleObjectParser(ObjectParser):
         :param response: The response from the RETS server
         :return: Object
         """
-        if "xml" in response.headers.get("Content-Type", ""):
-            # Got an XML response, likely an error code.
-            xml = xmltodict.parse(response.text)
-            self.analyze_reply_code(xml_response_dict=xml)
+        self.analyze_xml_response(response)
 
         obj = self._response_object_from_header(obj_head_dict=response.headers, content=response.content)
         yield obj

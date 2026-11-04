@@ -1,5 +1,3 @@
-import xmltodict
-
 from rets.parsers.base import Base
 
 
@@ -31,11 +29,7 @@ class OneXLogin(Base):
         :return: None
         """
         self.headers = response.headers
-
-        if "xml" in self.headers.get("Content-Type", ""):
-            # Got an XML response, likely an error code.
-            xml = xmltodict.parse(response.text)
-            self.analyze_reply_code(xml_response_dict=xml)
+        self.analyze_xml_response(response)
 
         lines = response.text.split("\r\n")
         if len(lines) < 3:

@@ -59,6 +59,16 @@ class DMQLHelper:
             except (TypeError, ValueError):
                 raise ValueError(error_message) from None
 
+        def evaluate_list(values, operator):
+            """Formats the list of values given to $in or $nin as a comma separated string"""
+            if not isinstance(values, list):
+                raise ValueError(f"{operator} expects a list of strings")
+            # Format into a new list; the filter belongs to the caller, who may reuse it.
+            formatted = [evaluate_datetime(v) for v in values]
+            if not all(isinstance(v, str) for v in formatted):
+                raise ValueError(f"{operator} expects a list of strings")
+            return ",".join(formatted)
+
         def evaluate_operators(key_dict):  # noqa: C901
             """Turns the custom filter operators into the expected RETS query"""
             allowed_operators = [
@@ -115,24 +125,10 @@ class DMQLHelper:
                         string = "{}-".format(evaluate_number(key_dict["$lte"], error_message))
 
                 elif "$in" in key_dict:
-                    if not isinstance(key_dict["$in"], list):
-                        raise ValueError("$in expects a list of strings")
-                    # Format into a new list; the filter belongs to the caller, who may reuse it.
-                    values = [evaluate_datetime(v) for v in key_dict["$in"]]
-                    if not all(isinstance(v, str) for v in values):
-                        raise ValueError("$in expects a list of strings")
-                    options = ",".join(values)
-                    string = f"{options}"
+                    string = evaluate_list(key_dict["$in"], "$in")
 
                 elif "$nin" in key_dict:
-                    if not isinstance(key_dict["$nin"], list):
-                        raise ValueError("$nin expects a list of strings")
-                    # Format into a new list; the filter belongs to the caller, who may reuse it.
-                    values = [evaluate_datetime(v) for v in key_dict["$nin"]]
-                    if not all(isinstance(v, str) for v in values):
-                        raise ValueError("$nin expects a list of strings")
-                    options = ",".join(values)
-                    string = f"~{options}"
+                    string = "~{}".format(evaluate_list(key_dict["$nin"], "$nin"))
 
                 elif "$contains" in key_dict:
                     if not isinstance(key_dict["$contains"], str):

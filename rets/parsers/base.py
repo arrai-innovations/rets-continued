@@ -1,5 +1,7 @@
 import logging
 
+import xmltodict
+
 from rets.exceptions import RETSException
 
 
@@ -34,6 +36,16 @@ class Base:
             return {k: v for k, v in zip(columns_string.split(delimiter), dict_string.split(delimiter)) if k != ""}
         else:
             return {k: v for k, v in zip(columns_string.split(), dict_string.split())}  # noqa: C416
+
+    def analyze_xml_response(self, response):
+        """
+        Checks the reply code of a response that came back as XML, which is how servers report an error in place
+        of the content asked for. A response of any other type is left for the caller to parse.
+        :param response: The response from the RETS server
+        :return: None
+        """
+        if "xml" in response.headers.get("Content-Type", ""):
+            self.analyze_reply_code(xml_response_dict=xmltodict.parse(response.text))
 
     def analyze_reply_code(self, xml_response_dict):
         """

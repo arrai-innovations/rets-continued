@@ -452,6 +452,42 @@ class ChunkedResponse:
         return b"".join(self.iter_content())
 
 
+class XMLReplyTester(unittest.TestCase):
+    """A login or GetObject response sent as XML holds a reply code in place of the content asked for"""
+
+    ERROR = '<RETS ReplyCode="20036" ReplyText="Miscellaneous server login error."/>'
+
+    def assert_reply_code_raised(self, parse, content_type):
+        response = FakeResponse(self.ERROR, headers={"Content-Type": content_type})
+        with self.assertRaises(RETSException) as caught:
+            parse(response)
+        self.assertEqual(caught.exception.reply_code, "20036")
+
+    def test_login(self):
+        self.assert_reply_code_raised(OneXLogin().parse, "text/xml")
+
+    def test_single_object(self):
+        self.assert_reply_code_raised(lambda r: list(SingleObjectParser().parse_image_response(r)), "text/xml")
+
+    def test_multiple_objects(self):
+        self.assert_reply_code_raised(
+            lambda r: list(MultipleObjectParser().parse_image_response(r)), "application/xml; charset=utf-8"
+        )
+
+    def test_success_reply_code(self):
+        response = FakeResponse('<RETS ReplyCode="0" ReplyText="Success"/>', headers={"Content-Type": "text/xml"})
+
+        objs = list(SingleObjectParser().parse_image_response(response))
+        self.assertEqual(objs[0]["content"], response.content)
+
+    def test_non_xml_response_is_not_checked(self):
+        # An object that merely contains XML-like bytes is returned as it is.
+        response = FakeResponse(self.ERROR, headers={"Content-Type": "image/jpeg"})
+
+        objs = list(SingleObjectParser().parse_image_response(response))
+        self.assertEqual(objs[0]["content"], self.ERROR.encode())
+
+
 class ResponseStreamTester(unittest.TestCase):
     """Reading a response body through ResponseStream gives exactly its bytes, however the reads fall"""
 
