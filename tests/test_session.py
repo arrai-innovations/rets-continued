@@ -1532,7 +1532,7 @@ class LoginTester(unittest.TestCase):
             s.login()
 
             self.assertEqual(s.capabilities, expected_capabilities1)
-            self.assertEqual(s.version, "1.5")
+            self.assertEqual(s.version, "RETS/1.5")
 
             resps.add(
                 resps.POST,
@@ -1569,7 +1569,17 @@ class LoginTester(unittest.TestCase):
             s1.login()
 
             self.assertDictEqual(s1.capabilities, expected_capabilities2)
-            self.assertEqual(s.version, "1.7.2")
+            self.assertEqual(s.version, "RETS/1.7.2")
+            # The version in the server's login response replaces the one the session was given.
+            self.assertEqual(s1.version, "RETS/1.7.2")
+
+    def test_version_gets_the_rets_prefix(self):
+        cases = [("1.7.2", "RETS/1.7.2"), ("RETS/1.7.2", "RETS/1.7.2"), (" 1.8 ", "RETS/1.8"), (None, None)]
+        for given, expected in cases:
+            with self.subTest(version=given):
+                s = Session(login_url="http://server.rets.com/rets/Login.ashx", username="retsuser", version=given)
+                self.assertEqual(s.version, expected)
+                self.assertEqual(s.client.headers.get("RETS-Version"), expected)
 
     def test_login_with_action(self):
         with open("tests/rets_responses/Login_with_Action.xml") as f:

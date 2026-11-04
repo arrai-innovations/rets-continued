@@ -141,8 +141,7 @@ All requests to a RETS server must be authenticated. The login credential fields
 - username: The username for the RETS feed
 - password: The password for the RETS feed
 - http_auth: `digest` or `basic`. The default is `digest`. If the server rejects digest authentication at login, the session retries with basic authentication, but only when the login URL uses https. Basic authentication sends the password unencrypted, so over plain http the login fails instead; pass `http_auth="basic"` to send it anyway. Whenever basic authentication is used with a plain http URL, the session logs a warning, once.
-- version: The RETS version is typically provided from the server at login. 
-You can set the version here to override the value provided by the server
+- version: The RETS version, such as `RETS/1.7.2`. A bare number such as `1.7.2` gets the `RETS/` prefix added. The RETS version is typically provided from the server at login, and replaces this one when it is.
 - user_agent: The useragent for the RETS feed. Not all servers require this.
 - user_agent_password: The useragent password for the RETS feed. Not all servers require this. When it is set, version must be set too, since the version is part of the user agent digest sent with the login request.
 - cache_metadata: Keep each metadata response and reuse it when the same metadata is requested again, rather than asking the server each time. The default is True.

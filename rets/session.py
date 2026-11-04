@@ -50,8 +50,9 @@ class Session:
         """
         Session constructor
         :param login_url: The login URL for the RETS feed
-        :param version: The RETS version to use. By default it is taken from the server's login response, but it
-        must be given when using user_agent_password.
+        :param version: The RETS version to use, such as RETS/1.7.2. A bare number such as 1.7.2 gets the RETS/
+        prefix added. By default it is taken from the server's login response, but it must be given when using
+        user_agent_password.
         :param username: The username for the RETS feed
         :param password: The password for the RETS feed
         :param http_auth: digest or basic. If the server rejects digest at login, the session retries with basic,
@@ -82,7 +83,8 @@ class Session:
         self.search_parser = search_parser
         self.timeout = timeout
         self.capabilities = {}
-        self.version = version  # Set by the RETS server response at login. You can override on initialization.
+        # Set by the RETS server response at login. You can override on initialization.
+        self.version = self._with_rets_prefix(version)
 
         self.metadata_responses = {}  # Keep metadata in the session instance to avoid consecutive calls to RETS
         self.metadata_format = metadata_format
@@ -108,6 +110,20 @@ class Session:
         self.follow_redirects = follow_redirects
         self.use_post_method = use_post_method
         self.add_capability(name="Login", uri=self.login_url)
+
+    @staticmethod
+    def _with_rets_prefix(version):
+        """
+        Put a version given as a bare number, such as 1.7.2, into the form the RETS-Version header takes
+        :param version: The RETS version, with or without its "RETS/" prefix
+        :return: The version as "RETS/1.7.2", or None if none was given
+        """
+        if not version:
+            return None
+        version = str(version).strip()
+        if version.upper().startswith("RETS/"):
+            return version
+        return f"RETS/{version}"
 
     def __enter__(self):
         """Context Manager: Login when entering context"""
