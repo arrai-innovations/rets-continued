@@ -17,17 +17,19 @@ class ResponseStream(io.RawIOBase):
     def __init__(self, response, chunk_size=64 * 1024):
         # iter_content undoes any gzip encoding, and still works if the body has already been read.
         self._chunks = response.iter_content(chunk_size=chunk_size)
-        self._buffer = b""
+        # The unread rest of the current chunk. Slicing a memoryview shares the chunk's bytes, so handing a
+        # chunk out over several reads copies each byte only once, into the reader's buffer.
+        self._buffer = memoryview(b"")
 
     def readable(self):
         return True
 
     def readinto(self, b):
         while not self._buffer:
-            self._buffer = next(self._chunks, None)
-            if self._buffer is None:
-                self._buffer = b""
+            chunk = next(self._chunks, None)
+            if chunk is None:
                 return 0
+            self._buffer = memoryview(chunk)
         size = min(len(b), len(self._buffer))
         b[:size] = self._buffer[:size]
         self._buffer = self._buffer[size:]

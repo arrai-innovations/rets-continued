@@ -1,3 +1,4 @@
+import io
 import unittest
 
 from rets.exceptions import MaxrowException
@@ -10,6 +11,7 @@ from rets.parsers.login import OneXLogin
 from rets.parsers.metadata import CompactMetadata
 from rets.parsers.metadata import StandardXMLMetadata
 from rets.parsers.search import OneXSearchCursor
+from rets.parsers.search import ResponseStream
 
 
 SYSTEM_RESPONSE = (
@@ -448,6 +450,35 @@ class ChunkedResponse:
     @property
     def content(self):
         return b"".join(self.iter_content())
+
+
+class ResponseStreamTester(unittest.TestCase):
+    """Reading a response body through ResponseStream gives exactly its bytes, however the reads fall"""
+
+    CHUNKS = (b"", b"abc", b"", b"defghij", b"k", b"lmnopqrstuvwxyz" * 3, b"")
+    BODY = b"".join(CHUNKS)
+
+    def test_reads_smaller_than_a_chunk(self):
+        stream = ResponseStream(ChunkedResponse(self.CHUNKS))
+        buffer = bytearray(4)
+        received = b""
+        while size := stream.readinto(buffer):
+            received += buffer[:size]
+
+        self.assertEqual(received, self.BODY)
+        self.assertEqual(stream.readinto(buffer), 0)
+
+    def test_reads_of_every_size(self):
+        for size in range(1, len(self.BODY) + 2):
+            with self.subTest(size=size):
+                reader = io.BufferedReader(ResponseStream(ChunkedResponse(self.CHUNKS)), buffer_size=size)
+                parts = iter(lambda r=reader, n=size: r.read(n), b"")
+
+                self.assertEqual(b"".join(parts), self.BODY)
+
+    def test_read_all(self):
+        self.assertEqual(ResponseStream(ChunkedResponse(self.CHUNKS)).read(), self.BODY)
+        self.assertEqual(ResponseStream(ChunkedResponse([])).read(), b"")
 
 
 class SearchStreamingTester(unittest.TestCase):
