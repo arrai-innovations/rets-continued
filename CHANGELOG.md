@@ -37,6 +37,7 @@
 * Format `$neq` datetime and time values the way the other filters do, such as `2026-01-02T03:04:05`. They were sent as Python's `str()` of the value, `2026-01-02 03:04:05.600000`, which is not the RETS date-time format.
 * Stop keeping metadata responses when `cache_metadata` is `False`. They were stored anyway, and never read back, so a session that turned caching off still held every metadata response it had received.
 * Add the `RETS/` prefix to a version given to the Session as a bare number, such as `1.7.2`, so that the `RETS-Version` header and the user agent digest carry `RETS/1.7.2`. `Session.version` now holds the prefixed form too.
+* Give `MaxrowException` a message saying the server truncated the search response, rather than only the row count.
 
 ## 2.0.1
 

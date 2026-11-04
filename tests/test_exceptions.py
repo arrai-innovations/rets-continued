@@ -3,6 +3,7 @@ import traceback
 import unittest
 
 from rets.exceptions import HTTPException
+from rets.exceptions import MaxrowException
 from rets.exceptions import RETSException
 
 
@@ -45,3 +46,20 @@ class HTTPExceptionTester(unittest.TestCase):
 
         self.assertEqual(error.status_code, 500)
         self.assertEqual(str(error), "Server Error")
+
+
+class MaxrowExceptionTester(unittest.TestCase):
+    def test_message(self):
+        error = MaxrowException(5)
+
+        self.assertEqual(error.rows_returned, 5)
+        self.assertEqual(
+            str(error),
+            "The RETS server truncated the search response with <MAXROWS/>, after the search parser had read 5 rows.",
+        )
+        self.assertEqual(repr(error), "MaxrowException(5)")
+
+    def test_pickle(self):
+        error = pickle.loads(pickle.dumps(MaxrowException(5)))  # noqa: S301
+
+        self.assertEqual(error.rows_returned, 5)
