@@ -42,6 +42,7 @@
 * Close a response the session refuses because of its status, so a streamed search that fails, such as with a 401, releases its connection rather than holding it until garbage collection.
 * Explain a login refused over http by what the server's challenge says. The message used to blame digest authentication and suggest basic for any 400 or 401, including wrong credentials. It now points to basic only when the server accepts nothing else, reports wrong credentials when the server offered digest, and otherwise gives the status code and suggests checking the credentials first.
 * Forget the login when the server refuses a logout with a 401, since it has already ended the session, so later requests raise `NotLoggedIn` before reaching the server and leaving a `with Session(...)` block does not try to log out again. The logout still raises `NotLoggedIn`. Other logout failures, such as a 500 or a timeout, keep the login so logging out can be retried.
+* Count only the truncated response's own rows in `MaxrowException.rows_returned`. It held the parser's running total, which takes in every earlier page and search when a `search_parser` is reused. The parser's `parsed_rows` attribute is still that running total.
 
 ## 2.0.1
 

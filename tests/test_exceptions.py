@@ -55,7 +55,7 @@ class MaxrowExceptionTester(unittest.TestCase):
         self.assertEqual(error.rows_returned, 5)
         self.assertEqual(
             str(error),
-            "The RETS server truncated the search response with <MAXROWS/>, after the search parser had read 5 rows.",
+            "The RETS server truncated the search response with <MAXROWS/>, after 5 rows.",
         )
         self.assertEqual(repr(error), "MaxrowException(5)")
 

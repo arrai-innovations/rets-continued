@@ -259,7 +259,22 @@ class LogMessageTester(unittest.TestCase):
         with self.assertLogs("rets", level="DEBUG") as logs, self.assertRaises(MaxrowException):
             list(OneXSearchCursor().generator(response=FakeResponse(body)))
 
-        self.assertIn("This search parser has parsed 2 rows in all", [r.getMessage() for r in logs.records])
+        self.assertIn("The response held 2 rows before MAXROWS", [r.getMessage() for r in logs.records])
+
+    def test_maxrows_counts_the_rows_of_its_own_response(self):
+        body = (
+            '<RETS ReplyCode="0"><DELIMITER value="09"/><COLUMNS>\tListingID\t</COLUMNS>'
+            "<DATA>\t123\t</DATA><DATA>\t456\t</DATA><MAXROWS/></RETS>"
+        )
+        parser = OneXSearchCursor()
+        with self.assertRaises(MaxrowException):
+            list(parser.generator(response=FakeResponse(body)))
+        with self.assertRaises(MaxrowException) as caught:
+            list(parser.generator(response=FakeResponse(body)))
+
+        # A parser reused for a later search or page reports that response's rows, not every row it has read.
+        self.assertEqual(caught.exception.rows_returned, 2)
+        self.assertEqual(parser.parsed_rows, 4)
 
 
 class MultipartObjectTester(unittest.TestCase):

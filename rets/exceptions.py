@@ -42,14 +42,14 @@ class MissingVersion(Exception):  # noqa: N818
 
 
 class MaxrowException(Exception):  # noqa: N818
-    """The RETS server truncated the search results with a <MAXROWS/>"""
+    """
+    The RETS server truncated the search results with a <MAXROWS/>. rows_returned is the number of rows the
+    truncated response held.
+    """
 
     def __init__(self, rows_returned):
         super().__init__(rows_returned)
         self.rows_returned = rows_returned
 
     def __str__(self):
-        return (
-            f"The RETS server truncated the search response with <MAXROWS/>, after the search parser had read "
-            f"{self.rows_returned!s} rows."
-        )
+        return f"The RETS server truncated the search response with <MAXROWS/>, after {self.rows_returned!s} rows."

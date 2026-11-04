@@ -49,6 +49,7 @@ class OneXSearchCursor(Base):
 
         delim = "\t"  # Default to tab delimited
         columns = []
+        rows = 0  # rows in this response, whatever earlier responses this parser has read
         root = None
         depth = 0
         events = iterparse(ResponseStream(response), events=("start", "end"))
@@ -68,6 +69,7 @@ class OneXSearchCursor(Base):
                 # server actually sent.
                 row = elem.text or ""
                 data_dict = {column: data for column, data in zip(columns, row.split(delim)) if column != ""}
+                rows += 1
                 self.parsed_rows += 1  # Rows parsed with all requests
                 yield data_dict
 
@@ -84,8 +86,8 @@ class OneXSearchCursor(Base):
             # handle max rows
             elif elem.tag == "MAXROWS":
                 logger.debug("MAXROWS Tag reached in XML")
-                logger.debug("This search parser has parsed %s rows in all", self.parsed_rows)
-                raise MaxrowException(self.parsed_rows)
+                logger.debug("The response held %s rows before MAXROWS", rows)
+                raise MaxrowException(rows)
 
             if depth == 1 and root is not None:
                 # The element has been dealt with, so drop it rather than keep every row attached to the
