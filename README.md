@@ -204,7 +204,7 @@ Returns the METADATA-LOOKUP_TYPE information for a field of a resource. The resu
 Some RETS servers accept a wildcard `*` in place of a name, returning the metadata for every resource, class or lookup at once: for example `get_class_metadata('*')`, `get_table_metadata('Property', '*')` or `get_lookup_values('Property', '*')`. The shape of the result depends on the metadata format:
 
 - **COMPACT-DECODED**, the default, returns one list holding the entries for every name. Each entry carries the name it belongs to under the same key the server uses for it: `Resource` for classes and objects, `Class` for tables, and `Lookup` for lookup values.
-- **STANDARD-XML** returns a dict of lists, keyed by that name. A wildcard always returns a dict, even when it matches a single name.
+- **STANDARD-XML** returns a dict of lists, keyed by that name. A wildcard always returns a dict, even when it matches a single name or none, and a name with no entries maps to an empty list.
 
 The session switches to STANDARD-XML when the server rejects COMPACT-DECODED, so check `rets_client.metadata_format` if your code has to handle either shape.
 

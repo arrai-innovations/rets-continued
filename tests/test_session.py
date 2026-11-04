@@ -670,7 +670,7 @@ class SessionTester(unittest.TestCase):
             resps.add(
                 resps.POST,
                 "http://server.rets.com/rets/GetMetadata.ashx",
-                body='<RETS ReplyCode="0"><METADATA><METADATA-RESOURCE Version="1"/></METADATA></RETS>',
+                body='<RETS ReplyCode="0"><METADATA><METADATA-RESOURCE Version="1"><Unexpected/></METADATA-RESOURCE></METADATA></RETS>',
                 status=200,
             )
             resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=contents, status=200)

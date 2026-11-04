@@ -221,6 +221,52 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
         self.assertEqual(self.parse("METADATA-CLASS", element, wildcard=True), {"Property": [{"ClassName": "RES"}]})
         self.assertEqual(self.parse("METADATA-CLASS", element), [{"ClassName": "RES"}])
 
+    def test_wildcard_matching_nothing(self):
+        # Whether the server leaves METADATA empty or sends it as a bare tag.
+        for metadata in ("<METADATA></METADATA>", "<METADATA/>"):
+            with self.subTest(metadata=metadata):
+                response = FakeResponse(f'<RETS ReplyCode="0">{metadata}</RETS>')
+                self.assertEqual(
+                    StandardXMLMetadata().parse(response=response, metadata_type="METADATA-CLASS", wildcard=True), {}
+                )
+
+    def test_wildcard_name_with_no_entries(self):
+        # A lookup with no values keeps its name, and does not fail the lookups that have values.
+        self.assertEqual(
+            self.parse(
+                "METADATA-LOOKUP_TYPE",
+                '<METADATA-LOOKUP_TYPE Lookup="Area"><LookupType><Value>N</Value></LookupType></METADATA-LOOKUP_TYPE>'
+                '<METADATA-LOOKUP_TYPE Lookup="Empty" Version="1.0"/>',
+                wildcard=True,
+            ),
+            {"Area": [{"Value": "N"}], "Empty": []},
+        )
+        self.assertEqual(
+            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Lookup="Empty"/>', wildcard=True), {"Empty": []}
+        )
+
+    def test_wildcard_skips_an_unnamed_element_with_no_entries(self):
+        self.assertEqual(
+            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Version="1.0"/>', wildcard=True),
+            {},
+        )
+
+    def test_element_with_no_entries(self):
+        for element in ('<METADATA-LOOKUP_TYPE Lookup="Empty" Version="1.0"/>', "<METADATA-LOOKUP_TYPE/>"):
+            with self.subTest(element=element):
+                self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", element), [])
+
+    def test_missing_element(self):
+        with self.assertRaisesRegex(ParseError, "no METADATA-CLASS element"):
+            self.parse("METADATA-CLASS", "")
+
+    def test_entries_under_an_unexpected_name(self):
+        # Entries the parser does not recognise must not be mistaken for an empty element.
+        with self.assertRaises(ParseError):
+            self.parse(
+                "METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Lookup="Area"><Thing>1</Thing></METADATA-LOOKUP_TYPE>'
+            )
+
 
 class LogMessageTester(unittest.TestCase):
     """The parsers' debug messages carry the values they describe, not unfilled placeholders"""

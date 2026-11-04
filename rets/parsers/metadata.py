@@ -131,40 +131,71 @@ class StandardXMLMetadata(Base):
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
-        base = xml.get("RETS", {}).get("METADATA", {}).get(metadata_type, {})
+        # xmltodict turns an element with no attributes or children into None.
+        metadata = (xml.get("RETS") or {}).get("METADATA") or {}
 
         if metadata_type == "METADATA-SYSTEM":
-            syst = base.get("System", base.get("SYSTEM"))
-            if not syst:
-                raise ParseError("Could not get the System key from a METADATA-SYSTEM request.")
-
-            system_obj = {}
-            if syst.get("SystemID"):
-                system_obj["system_id"] = str(syst["SystemID"])
-            if syst.get("SystemDescription"):
-                system_obj["system_description"] = str(syst["SystemDescription"])
-            if syst.get("Comments"):
-                system_obj["comments"] = syst["Comments"]
-            if base.get("@Version"):
-                system_obj["version"] = base["@Version"]
-            return [system_obj]
+            return [self._parse_system(metadata.get(metadata_type) or {})]
 
         if metadata_type not in self.element_keys:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
+        if metadata_type not in metadata:
+            if wildcard:
+                # The wildcard matched nothing.
+                return {}
+            msg = f"The response holds no {metadata_type!s} element"
+            raise ParseError(msg)
+
+        base = metadata[metadata_type]
         if isinstance(base, list) or wildcard:
             # Several metadata elements may come back, so return a dict of lists keyed by the name each
             # element covers. A wildcard request gets one even if it matched a single name, so that its
             # result has the same type however many names the server has.
             return self._parse_named_elements(base if isinstance(base, list) else [base], metadata_type)
 
+        return self._entries(base, metadata_type)
+
+    @staticmethod
+    def _parse_system(base):
+        """
+        Parses the METADATA-SYSTEM element
+        :param base: The METADATA-SYSTEM element, as parsed by xmltodict
+        :return: dict
+        """
+        syst = base.get("System", base.get("SYSTEM"))
+        if not syst:
+            raise ParseError("Could not get the System key from a METADATA-SYSTEM request.")
+
+        system_obj = {}
+        if syst.get("SystemID"):
+            system_obj["system_id"] = str(syst["SystemID"])
+        if syst.get("SystemDescription"):
+            system_obj["system_description"] = str(syst["SystemDescription"])
+        if syst.get("Comments"):
+            system_obj["comments"] = syst["Comments"]
+        if base.get("@Version"):
+            system_obj["version"] = base["@Version"]
+        return system_obj
+
+    def _entries(self, element, metadata_type):
+        """
+        Get the entries of one metadata element as a list
+        :param element: The metadata element, as parsed by xmltodict
+        :param metadata_type: string
+        :return: list
+        """
+        if not isinstance(element, dict):
+            # A bare element, which xmltodict gives as None, or one holding only text.
+            return []
+        if not any(k[0] != "@" and k != "#text" for k in element):
+            # The element has attributes but no child elements, such as a lookup with no values. An
+            # element whose children go by an unexpected name still fails below, rather than look empty.
+            return []
         key, _name_attribute = self.element_keys[metadata_type]
-        key_cap = self._identify_key(base, key)
-        # Server returns single list
-        if isinstance(base[key_cap], list):
-            return base[key_cap]
-        else:
-            return [base[key_cap]]
+        key_cap = self._identify_key(element, key)
+        entries = element[key_cap]
+        return entries if isinstance(entries, list) else [entries]
 
     def _parse_named_elements(self, elements, metadata_type):
         """
@@ -173,21 +204,24 @@ class StandardXMLMetadata(Base):
         :param metadata_type: string
         :return: dict
         """
-        key, name_attribute = self.element_keys[metadata_type]
+        _key, name_attribute = self.element_keys[metadata_type]
         if not name_attribute:
             msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
             raise ParseError(msg)
 
         res = {}
         for i in elements:
-            name = i.get(f"@{name_attribute}")
+            entries = self._entries(i, metadata_type)
+            name = i.get(f"@{name_attribute}") if isinstance(i, dict) else None
             if name is None:
+                if not entries:
+                    # Names nothing and holds nothing, so there is nothing to lose by passing over it.
+                    continue
                 msg = f"A {metadata_type!s} element is missing its {name_attribute!s} attribute"
                 raise ParseError(msg)
             if name in res:
                 # Wildcards spanning several resources can repeat a name; refuse rather than lose entries.
                 msg = f"Got more than one {metadata_type!s} element for {name_attribute!s} {name!s}"
                 raise ParseError(msg)
-            key_cap = self._identify_key(i, key)
-            res[name] = i[key_cap] if isinstance(i[key_cap], list) else [i[key_cap]]
+            res[name] = entries
         return res
