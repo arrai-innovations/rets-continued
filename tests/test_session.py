@@ -936,6 +936,79 @@ class StatusCodeTester(unittest.TestCase):
         self.assertIn("use_post_method=False", str(caught.exception))
         self.assertEqual(caught.exception.status_code, 404)
 
+    def test_rets_reply_code_with_an_error_status(self):
+        # Some servers send their RETS errors with an HTTP error status. The reply code says more than the status.
+        bodies = [
+            '<RETS ReplyCode="20203" ReplyText="Miscellaneous search error."/>',
+            '<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20203" ReplyText="Miscellaneous search error."/></RETS>',
+        ]
+        for body in bodies:
+            with self.subTest(body=body), responses.RequestsMock() as resps:
+                resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=body, status=500)
+
+                with self.assertRaises(RETSException) as caught:
+                    self.search()
+
+            self.assertEqual(caught.exception.reply_code, "20203")
+            self.assertEqual(caught.exception.reply_text, "Miscellaneous search error.")
+
+    def test_no_records_found_with_an_error_status(self):
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                body='<RETS ReplyCode="20201" ReplyText="No Records Found."/>',
+                status=404,
+            )
+
+            self.assertEqual(self.search(), [])
+
+    def test_object_not_found_with_an_error_status(self):
+        # The reply code is reported, rather than the advice about use_post_method that a bare 404 gets.
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/GetObject.ashx",
+                body='<RETS ReplyCode="20403" ReplyText="No Object Found."/>',
+                status=404,
+                content_type="text/xml",
+            )
+
+            with self.assertRaises(RETSException) as caught:
+                list(self.session.get_object(resource="Property", object_type="Photo", content_ids="1"))
+
+        self.assertEqual(caught.exception.reply_code, "20403")
+
+    def test_metadata_format_fallback_with_an_error_status(self):
+        with open("tests/rets_responses/Errors/20514.xml") as f:
+            dtd_error = "".join(f.readlines())
+        with open("tests/rets_responses/STANDARD-XML/GetMetadata_system.xml") as f:
+            standard_system = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=dtd_error, status=400)
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=standard_system, status=200)
+
+            self.session.get_system_metadata()
+
+        # The server's 20514 still moves the session over to STANDARD-XML.
+        self.assertEqual(self.session.metadata_format, "STANDARD-XML")
+
+    def test_success_reply_code_with_an_error_status(self):
+        # A reply code of 0 says nothing about why the request failed, so the status is reported.
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                body='<RETS ReplyCode="0" ReplyText="Success"/>',
+                status=500,
+            )
+
+            with self.assertRaises(HTTPException) as caught:
+                self.search()
+
+        self.assertEqual(caught.exception.status_code, 500)
+
     def test_redirect_is_followed(self):
         with responses.RequestsMock() as resps:
             resps.add(

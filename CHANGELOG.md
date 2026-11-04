@@ -38,6 +38,7 @@
 * Stop keeping metadata responses when `cache_metadata` is `False`. They were stored anyway, and never read back, so a session that turned caching off still held every metadata response it had received.
 * Add the `RETS/` prefix to a version given to the Session as a bare number, such as `1.7.2`, so that the `RETS-Version` header and the user agent digest carry `RETS/1.7.2`. `Session.version` now holds the prefixed form too.
 * Give `MaxrowException` a message saying the server truncated the search response, rather than only the row count.
+* Report the RETS reply code from a response that carries one with an HTTP error status, as a `RETSException`, instead of an `HTTPException` that only gives the status. Such a reply again moves metadata requests over to STANDARD-XML when the server rejects COMPACT-DECODED, and a search's "No Records Found" again returns no rows.
 
 ## 2.0.1
 

@@ -4,6 +4,8 @@ from urllib.parse import quote
 from urllib.parse import urlparse
 
 import requests
+from defusedxml.ElementTree import ParseError as XMLParseError
+from defusedxml.ElementTree import fromstring
 from requests.auth import HTTPBasicAuth
 from requests.auth import HTTPDigestAuth
 
@@ -290,23 +292,25 @@ class Session:
         # If this metadata _request has already happened, returned the saved result. The format is part of
         # the key because a response can only be read by the parser for the format it was requested in.
         key = f"{self.metadata_format!s}:{metadata_type!s}:{meta_id!s}"
-        if key in self.metadata_responses and self.cache_metadata:
-            response = self.metadata_responses[key]
-        else:
-            response = self._request(
-                capability="GetMetadata",
-                options={
-                    "query": {
-                        "Type": metadata_type,
-                        "ID": meta_id,
-                        "Format": self.metadata_format,
-                    }
-                },
-            )
-            if self.cache_metadata:
-                self.metadata_responses[key] = response
-
         try:
+            if key in self.metadata_responses and self.cache_metadata:
+                response = self.metadata_responses[key]
+            else:
+                # Requested inside the try, since a server may send its reply code with an HTTP error status, and
+                # _request raises that as a RETSException.
+                response = self._request(
+                    capability="GetMetadata",
+                    options={
+                        "query": {
+                            "Type": metadata_type,
+                            "ID": meta_id,
+                            "Format": self.metadata_format,
+                        }
+                    },
+                )
+                if self.cache_metadata:
+                    self.metadata_responses[key] = response
+
             if self.metadata_format == "COMPACT-DECODED":
                 # Process generator here to raise RETSException if it happens
                 return list(CompactMetadata().parse(response=response, metadata_type=metadata_type))
@@ -615,6 +619,15 @@ class Session:
         if response.status_code == 401:
             raise NotLoggedIn("The RETS server returned a 401 status code. You must be logged in to make this request.")
 
+        reply = None if response.ok else self._rets_error_reply(response)
+        if reply is not None:
+            # Some servers send their RETS errors with an HTTP error status, and the reply code says more.
+            reply_code, reply_text = reply
+            if capability == "Search" and reply_code == "20201":
+                # No Records Found, which the search parser turns into an empty result, as it does with a 200.
+                return
+            raise RETSException(reply_text, reply_code)
+
         if response.status_code == 404 and self.use_post_method:
             raise HTTPException(
                 "Got a 404 when making a POST request. Try setting use_post_method=False when initializing the Session.",
@@ -630,10 +643,30 @@ class Session:
             raise HTTPException(msg, status_code=response.status_code)
 
         if not response.ok:
-            # Anything else the server refused. A RETS server reports its own errors as a
-            # non-zero ReplyCode with a 200, so a failing status is about the HTTP request.
+            # Anything else the server refused, with no RETS reply code in the body to say why.
             msg = f"The RETS server returned a {response.status_code!s} status code for the {capability!s} request."
             raise HTTPException(msg, status_code=response.status_code)
+
+    @staticmethod
+    def _rets_error_reply(response):
+        """
+        Read the RETS error reply in a response body, if it holds one
+        :param response: The response from the RETS server
+        :return: The (reply_code, reply_text) of a non-zero reply code, or None
+        """
+        try:
+            root = fromstring(response.content)
+        except (XMLParseError, ValueError):
+            # Not XML, or XML that defusedxml refuses to read, so there is no reply code to report.
+            return None
+
+        if root.tag != "RETS":
+            return None
+        # The reply code is on the RETS element, or on a RETS-STATUS element inside it.
+        for status in (root, root.find("RETS-STATUS")):
+            if status is not None and status.get("ReplyCode") not in (None, "0"):
+                return status.get("ReplyCode"), status.get("ReplyText", "RETS did not supply a Reply Text.")
+        return None
 
     def _user_agent_digest_hash(self):
         """
