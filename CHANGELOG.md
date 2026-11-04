@@ -32,6 +32,7 @@
 * Let a `RETSException` without reply text be printed: its `str()` and `repr()` returned `None`, which raised `TypeError` and left tracebacks showing `<exception str() failed>`. It now falls back to a message naming the reply code. Its `repr()` is the standard `RETSException('text', 'code')` form rather than the bare reply text.
 * Raise `ValueError` from `search()` when the STANDARD-XML format is requested without a `search_parser`. The built-in parser only reads COMPACT results, so such a search used to return no rows without any error, however many the server sent.
 * Return a dict of lists from every STANDARD-XML wildcard metadata request, even one that matches a single name, which used to come back as a plain list. Document the shape of wildcard results in each format: COMPACT-DECODED returns one list whose entries name their resource, class or lookup, while STANDARD-XML returns a dict of lists keyed by that name.
+* Resume a truncated search at the record after the last one received. RETS numbers records from 1, but a search started without an offset resumed at `Offset` equal to the number of rows received, so the server sent the last row of each page again.
 
 ## 2.0.1
 

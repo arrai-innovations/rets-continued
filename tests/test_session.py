@@ -533,8 +533,34 @@ class SessionTester(unittest.TestCase):
             sent = [parse_qs(call.request.body) for call in resps.calls]
 
         self.assertEqual(len(results), 6)
-        self.assertEqual([q.get("Offset") for q in sent], [None, ["3"]])
+        # The first page held records 1 to 3, so the next starts at record 4.
+        self.assertEqual([q.get("Offset") for q in sent], [None, ["4"]])
         self.assertEqual([q.get("Limit") for q in sent], [None, None])
+
+    def test_auto_offset_from_a_given_offset(self):
+        with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
+            search1_contents = "".join(f.readlines())
+
+        with open("tests/rets_responses/COMPACT-DECODED/Search_2of2.xml") as f:
+            search2_contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            for contents in (search1_contents, search2_contents):
+                resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=contents, status=200)
+
+            results = list(
+                self.session.search(
+                    resource="Property",
+                    resource_class="RES",
+                    search_filter={"ListingPrice": 200000},
+                    offset=11,
+                )
+            )
+            sent = [parse_qs(call.request.body) for call in resps.calls]
+
+        self.assertEqual(len(results), 6)
+        # Records 11 to 13 came back, so the next page starts at record 14.
+        self.assertEqual([q.get("Offset") for q in sent], [["11"], ["14"]])
 
     def test_auto_offset_with_shared_search_parser(self):
         """A search_parser is reused by every search, so its state must not shift later offsets."""
@@ -569,8 +595,8 @@ class SessionTester(unittest.TestCase):
         finally:
             self.session.search_parser = None
 
-        # Each search starts unoffset and resumes from row 3, where the first response hit MAXROWS.
-        self.assertEqual([q.get("Offset") for q in sent], [None, ["3"], None, ["3"]])
+        # Each search starts unoffset and resumes from record 4, after the three the first response held.
+        self.assertEqual([q.get("Offset") for q in sent], [None, ["4"], None, ["4"]])
         self.assertEqual([q["Limit"] for q in sent], [["9999999"], ["9999996"], ["9999999"], ["9999996"]])
 
     def test_cache_metadata(self):

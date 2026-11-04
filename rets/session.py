@@ -382,7 +382,8 @@ class Session:
         :param search_filter: The query as a dict
         :param dmql_query: The query in dmql format
         :param limit: Limit search values count
-        :param offset: Offset for RETS request. Useful when RETS limits number of results or transactions
+        :param offset: The number of the first record to return. RETS numbers records from 1, and 0 or None also
+        starts from the first. Useful when RETS limits number of results or transactions
         :param optional_parameters: Values for option paramters
         :param auto_offset: Should the search be allowed to trigger subsequent searches.
         :param query_type: DMQL or DMQL2 depending on the rets server.
@@ -485,7 +486,8 @@ class Session:
                         if limit:
                             # have not returned results to the desired limit
                             parameters["Limit"] = limit - rows_returned
-                        parameters["Offset"] = offset + rows_returned  # adjust offset
+                        # RETS numbers records from 1, and a search without an offset starts at the first.
+                        parameters["Offset"] = (offset or 1) + rows_returned
                         response.close()
                         response = self._request(capability="Search", options={"query": parameters}, stream=True)
                     else:

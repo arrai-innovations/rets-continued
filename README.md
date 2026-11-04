@@ -237,7 +237,7 @@ The search method takes the following parameters:
 - search_filter=None: The query as a dict
 - dmql_query=None: The query in dmql format
 - limit=None: Limit search values count
-- offset=None: Offset for RETS request. Useful when RETS limits number of results or transactions
+- offset=None: The number of the first record to return. RETS numbers records from 1, so to skip the first 100 records, pass `offset=101`. Leaving it out starts from the first record. Useful when RETS limits number of results or transactions
 - optional_parameters=None: Values for option paramters
 - query_type: The query type to submit as. Defaults to `DMQL2`
 - standard_names: Boolean for if the search uses standard names.
