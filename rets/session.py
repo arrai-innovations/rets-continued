@@ -59,6 +59,8 @@ class Session:
         http URL logs a warning, once per session.
         :param user_agent: The useragent for the RETS feed
         :param user_agent_password: The useragent password for the RETS feed. Requires version.
+        :param cache_metadata: Keep each metadata response and reuse it when the same metadata is requested again,
+        rather than asking the server each time. The default is True.
         :param follow_redirects: Follow HTTP redirects or not. The default is to follow them, True.
         :param use_post_method: Use HTTP POST method when making requests instead of GET. The default is True
         :param metadata_format: COMPACT_DECODED or STANDARD_XML. The client will attempt to set this automatically
@@ -66,6 +68,8 @@ class Session:
         :param session_id_cookie_name: The session cookie name returned by the RETS server. Default is RETS-Session-ID
         :param search_parser: A search parser object that implements a method named generator. The same
         object is handed to every search this session makes, so it should not carry state between them.
+        :param timeout: How many seconds each request waits for the server to connect, or to send more of its
+        response, before failing. It does not limit how long a whole response takes. The default is 15.
         """
         self.login_url = login_url
         self.username = username
@@ -283,7 +287,8 @@ class Session:
                     }
                 },
             )
-            self.metadata_responses[key] = response
+            if self.cache_metadata:
+                self.metadata_responses[key] = response
 
         try:
             if self.metadata_format == "COMPACT-DECODED":

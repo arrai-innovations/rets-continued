@@ -618,6 +618,21 @@ class SessionTester(unittest.TestCase):
         table = self.session.get_table_metadata(resource="Property", resource_class="RES")
         self.assertEqual(len(list(table)), 208)
 
+    def test_metadata_without_caching(self):
+        with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_table.xml") as f:
+            contents = "".join(f.readlines())
+        self.session.cache_metadata = False
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=contents, status=200)
+            for _ in range(2):
+                table = self.session.get_table_metadata(resource="Property", resource_class="RES")
+                self.assertEqual(len(table), 208)
+
+            # Each call asks the server, and no response is kept for a reuse that never comes.
+            self.assertEqual(len(resps.calls), 2)
+        self.assertEqual(self.session.metadata_responses, {})
+
     def test_cache_metadata_after_format_change(self):
         with open("tests/rets_responses/COMPACT-DECODED/GetMetadata_resources.xml") as f:
             compact_resources = "".join(f.readlines())
