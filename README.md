@@ -160,10 +160,16 @@ If you don't want to manually call the session's login and logout methods, the S
 with Session(login_url, username, password) as s:
     print("Now logged in")
     system_metadata = s.get_system_metadata()
-    search_results = s.search(resource="Property", resource_class="RES", limit=100, dmql_query="(ListPrice=150000+)")
+    # search() returns a generator, which requests the results only as it is iterated, so read them before
+    # leaving the block. list() reads them all; iterating with a for loop inside the block works too.
+    search_results = list(
+        s.search(resource="Property", resource_class="RES", limit=100, dmql_query="(ListPrice=150000+)")
+    )
 print("Now logged out")
 ## do stuff with the search results
 ```
+
+Once the block has logged out, the session can no longer make requests, so a search generator that has not been read raises `NotLoggedIn` when iterated after the block.
 
 ## Metadata Methods
 
