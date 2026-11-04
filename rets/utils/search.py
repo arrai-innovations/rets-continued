@@ -117,19 +117,21 @@ class DMQLHelper:
                 elif "$in" in key_dict:
                     if not isinstance(key_dict["$in"], list):
                         raise ValueError("$in expects a list of strings")
-                    key_dict["$in"] = [evaluate_datetime(v) for v in key_dict["$in"]]
-                    if not all(isinstance(v, str) for v in key_dict["$in"]):
+                    # Format into a new list; the filter belongs to the caller, who may reuse it.
+                    values = [evaluate_datetime(v) for v in key_dict["$in"]]
+                    if not all(isinstance(v, str) for v in values):
                         raise ValueError("$in expects a list of strings")
-                    options = ",".join(key_dict["$in"])
+                    options = ",".join(values)
                     string = f"{options}"
 
                 elif "$nin" in key_dict:
                     if not isinstance(key_dict["$nin"], list):
                         raise ValueError("$nin expects a list of strings")
-                    key_dict["$nin"] = [evaluate_datetime(v) for v in key_dict["$nin"]]
-                    if not all(isinstance(v, str) for v in key_dict["$nin"]):
+                    # Format into a new list; the filter belongs to the caller, who may reuse it.
+                    values = [evaluate_datetime(v) for v in key_dict["$nin"]]
+                    if not all(isinstance(v, str) for v in values):
                         raise ValueError("$nin expects a list of strings")
-                    options = ",".join(key_dict["$nin"])
+                    options = ",".join(values)
                     string = f"~{options}"
 
                 elif "$contains" in key_dict:

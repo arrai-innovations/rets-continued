@@ -1,3 +1,4 @@
+import copy
 import datetime
 import unittest
 from collections import OrderedDict
@@ -166,6 +167,18 @@ class SearchTester(unittest.TestCase):
         dict3 = {"Status": {"$nin": "Active"}}
         with self.assertRaises(ValueError):
             self.search_interpreter.filter_to_dmql(filter_dict=dict3)
+
+    def test_in_and_nin_leave_the_filter_unchanged(self):
+        # The caller may reuse a filter, so formatting its values must not replace them.
+        dates = [datetime.date(2026, 1, 2), datetime.date(2026, 3, 4)]
+        search_filter = {"ListDate": {"$in": dates}, "CloseDate": {"$nin": dates}}
+        expected = copy.deepcopy(search_filter)
+
+        res = self.search_interpreter.filter_to_dmql(filter_dict=search_filter)
+
+        self.assertEqual(res, "(ListDate=2026-01-02,2026-03-04),(CloseDate=~2026-01-02,2026-03-04)")
+        self.assertEqual(search_filter, expected)
+        self.assertIs(search_filter["ListDate"]["$in"], dates)
 
     def test_contains(self):
         dict1 = {"FullAddress": {"$contains": "main"}}
