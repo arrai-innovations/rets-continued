@@ -149,6 +149,7 @@ All requests to a RETS server must be authenticated. The login credential fields
 - use_post_method: Use HTTP POST method when making requests instead of GET. The default is True
 - metadata_format: COMPACT_DECODED or STANDARD_XML. The client will attempt to set this automatically based on response codes from the RETS server.
 - session_id_cookie_name: The session cookie name returned by the RETS server. Default is RETS-Session-ID
+- search_parser: An object whose `generator` method turns each search response into result rows, used in place of the built-in parser. It is needed for STANDARD-XML searches; see [Custom Results Parser](#custom-results-parser). The same object is used for every search the session makes, so it should not carry state from one search to the next.
 - timeout: How many seconds each request waits for the server to connect, or to send more of its response, before failing. It does not limit how long a whole response takes. The default is 15.
 
 ### Context Manager
