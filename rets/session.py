@@ -228,7 +228,7 @@ class Session:
         """
         Get classes for a given resource
         :param resource: The resource name to get class metadata for
-        :return: list, or a dict of lists keyed by name if a wildcard was given
+        :return: list. For a wildcard in the STANDARD-XML format, a dict of lists keyed by name. See the README.
         """
         return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-CLASS")
 
@@ -237,7 +237,7 @@ class Session:
         Get metadata for a given resource: class
         :param resource: The name of the resource
         :param resource_class: The name of the class to get metadata from
-        :return: list, or a dict of lists keyed by name if a wildcard was given
+        :return: list. For a wildcard in the STANDARD-XML format, a dict of lists keyed by name. See the README.
         """
         return self._make_metadata_request(meta_id=resource + ":" + resource_class, metadata_type="METADATA-TABLE")
 
@@ -245,7 +245,7 @@ class Session:
         """
         Get object metadata from a resource
         :param resource: The resource name to get object metadata for
-        :return: list, or a dict of lists keyed by name if a wildcard was given
+        :return: list. For a wildcard in the STANDARD-XML format, a dict of lists keyed by name. See the README.
         """
         return self._make_metadata_request(meta_id=resource, metadata_type="METADATA-OBJECT")
 
@@ -254,7 +254,7 @@ class Session:
         Get possible lookup values for a given field
         :param resource: The name of the resource
         :param lookup_name: The name of the the field to get lookup values for
-        :return: list, or a dict of lists keyed by lookup name if a wildcard lookup_name was given
+        :return: list. For a wildcard in the STANDARD-XML format, a dict of lists keyed by name. See the README.
         """
         return self._make_metadata_request(meta_id=resource + ":" + lookup_name, metadata_type="METADATA-LOOKUP_TYPE")
 
@@ -264,7 +264,8 @@ class Session:
         then we change to the 'STANDARD-XML' format and try again.
         :param meta_id: The name of the resource, class, or lookup to get metadata for
         :param metadata_type: The RETS metadata type
-        :return: list, or a dict of lists keyed by name when the server answers a wildcard request
+        :return: list. For a wildcard in the STANDARD-XML format, a dict of lists keyed by name. COMPACT-DECODED
+        returns one list, with each entry's name in its Resource, Class or Lookup key.
         """
         # If this metadata _request has already happened, returned the saved result. The format is part of
         # the key because a response can only be read by the parser for the format it was requested in.
@@ -284,15 +285,14 @@ class Session:
             )
             self.metadata_responses[key] = response
 
-        if self.metadata_format == "COMPACT-DECODED":  # noqa: SIM108
-            parser = CompactMetadata()
-        else:
-            parser = StandardXMLMetadata()
-
         try:
-            # Process generator here to raise RETSException if it happens
-            parsed = parser.parse(response=response, metadata_type=metadata_type)
-            return parsed if isinstance(parsed, dict) else list(parsed)
+            if self.metadata_format == "COMPACT-DECODED":
+                # Process generator here to raise RETSException if it happens
+                return list(CompactMetadata().parse(response=response, metadata_type=metadata_type))
+
+            # A "*" in place of a resource, class or lookup name asks for every one of them.
+            wildcard = "*" in str(meta_id).split(":")
+            return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type, wildcard=wildcard)
         except RETSException as rets_er:
             # Remove response from cache
             self.metadata_responses.pop(key, None)

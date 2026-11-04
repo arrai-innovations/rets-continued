@@ -152,9 +152,9 @@ class CompactDataMetadataTester(unittest.TestCase):
 class StandardXMLWildcardMetadataTester(unittest.TestCase):
     """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
 
-    def parse(self, metadata_type, elements):
+    def parse(self, metadata_type, elements, wildcard=False):
         response = FakeResponse(f'<RETS ReplyCode="0"><METADATA>{elements}</METADATA></RETS>')
-        return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type)
+        return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type, wildcard=wildcard)
 
     def test_classes_keyed_by_resource(self):
         self.assertEqual(
@@ -213,6 +213,13 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
                 '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
                 "<METADATA-CLASS><Class><ClassName>AGT</ClassName></Class></METADATA-CLASS>",
             )
+
+    def test_wildcard_matching_a_single_name(self):
+        # The result has the same type as when the wildcard matches several names.
+        element = '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
+
+        self.assertEqual(self.parse("METADATA-CLASS", element, wildcard=True), {"Property": [{"ClassName": "RES"}]})
+        self.assertEqual(self.parse("METADATA-CLASS", element), [{"ClassName": "RES"}])
 
 
 class LogMessageTester(unittest.TestCase):

@@ -119,12 +119,15 @@ class StandardXMLMetadata(Base):
             raise ParseError(msg)
         return key_cap
 
-    def parse(self, response, metadata_type):  # noqa: C901
+    def parse(self, response, metadata_type, wildcard=False):
         """
         Parses RETS metadata using the STANDARD-XML format
         :param response: requests Response object
         :param metadata_type: string
-        :return parsed: list, or a dict of lists keyed by name when the response holds several metadata elements
+        :param wildcard: Whether the request used a wildcard ID, which always gets a dict back, even when it
+        matched a single name
+        :return parsed: list, or a dict of lists keyed by name for a wildcard request or when the response holds
+        several metadata elements
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
@@ -149,32 +152,42 @@ class StandardXMLMetadata(Base):
         if metadata_type not in self.element_keys:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
-        key, name_attribute = self.element_keys[metadata_type]
+        if isinstance(base, list) or wildcard:
+            # Several metadata elements may come back, so return a dict of lists keyed by the name each
+            # element covers. A wildcard request gets one even if it matched a single name, so that its
+            # result has the same type however many names the server has.
+            return self._parse_named_elements(base if isinstance(base, list) else [base], metadata_type)
 
-        if isinstance(base, list):
-            # Multiple metadata elements were returned, as for a wildcard request.
-            # Return a dict of lists, keyed by the name each element covers.
-            if not name_attribute:
-                msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
-                raise ParseError(msg)
-            res = {}
-            for i in base:
-                name = i.get(f"@{name_attribute}")
-                if name is None:
-                    msg = f"A {metadata_type!s} element is missing its {name_attribute!s} attribute"
-                    raise ParseError(msg)
-                if name in res:
-                    # Wildcards spanning several resources can repeat a name; refuse rather than lose entries.
-                    msg = f"Got more than one {metadata_type!s} element for {name_attribute!s} {name!s}"
-                    raise ParseError(msg)
-                key_cap = self._identify_key(i, key)
-                res[name] = i[key_cap] if isinstance(i[key_cap], list) else [i[key_cap]]
-            return res
-
+        key, _name_attribute = self.element_keys[metadata_type]
+        key_cap = self._identify_key(base, key)
+        # Server returns single list
+        if isinstance(base[key_cap], list):
+            return base[key_cap]
         else:
-            key_cap = self._identify_key(base, key)
-            # Server returns single list
-            if isinstance(base[key_cap], list):
-                return base[key_cap]
-            else:
-                return [base[key_cap]]
+            return [base[key_cap]]
+
+    def _parse_named_elements(self, elements, metadata_type):
+        """
+        Parses metadata elements into a dict of lists, keyed by the name each element covers
+        :param elements: The metadata elements, as parsed by xmltodict
+        :param metadata_type: string
+        :return: dict
+        """
+        key, name_attribute = self.element_keys[metadata_type]
+        if not name_attribute:
+            msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
+            raise ParseError(msg)
+
+        res = {}
+        for i in elements:
+            name = i.get(f"@{name_attribute}")
+            if name is None:
+                msg = f"A {metadata_type!s} element is missing its {name_attribute!s} attribute"
+                raise ParseError(msg)
+            if name in res:
+                # Wildcards spanning several resources can repeat a name; refuse rather than lose entries.
+                msg = f"Got more than one {metadata_type!s} element for {name_attribute!s} {name!s}"
+                raise ParseError(msg)
+            key_cap = self._identify_key(i, key)
+            res[name] = i[key_cap] if isinstance(i[key_cap], list) else [i[key_cap]]
+        return res

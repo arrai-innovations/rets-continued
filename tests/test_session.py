@@ -1402,6 +1402,47 @@ class Session15Tester(unittest.TestCase):
 
         self.assertEqual(len(object_metadata), 1)
 
+    def get_metadata(self, fixture, method, **kwargs):
+        with open(fixture) as f:
+            contents = "".join(f.readlines())
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=contents, status=200)
+            result = getattr(self.session, method)(**kwargs)
+            query = parse_qs(resps.calls[0].request.body)
+        return result, query["ID"][0]
+
+    def test_wildcard_lookup_matching_a_single_name(self):
+        lookups, meta_id = self.get_metadata(
+            "tests/rets_responses/STANDARD-XML/GetMetadata_lookup.xml",
+            "get_lookup_values",
+            resource="Property",
+            lookup_name="*",
+        )
+
+        self.assertEqual(meta_id, "Property:*")
+        self.assertEqual(list(lookups), ["Status"])
+        self.assertEqual(lookups["Status"][0]["Value"], "A")
+
+    def test_wildcard_class_matching_a_single_resource(self):
+        classes, _meta_id = self.get_metadata(
+            "tests/rets_responses/STANDARD-XML/GetMetadata_classes.xml", "get_class_metadata", resource="*"
+        )
+
+        self.assertEqual(list(classes), ["Property"])
+        self.assertEqual(classes["Property"][0]["ClassName"], "1")
+
+    def test_named_lookup_is_a_list(self):
+        lookups, _meta_id = self.get_metadata(
+            "tests/rets_responses/STANDARD-XML/GetMetadata_lookup.xml",
+            "get_lookup_values",
+            resource="Property",
+            lookup_name="Status",
+        )
+
+        self.assertIsInstance(lookups, list)
+        self.assertEqual(lookups[0]["Value"], "A")
+
 
 class LoginTester(unittest.TestCase):
     def test_login(self):

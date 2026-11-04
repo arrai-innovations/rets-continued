@@ -28,6 +28,7 @@
     - [rets_client.get_table_metadata(resource, class)](#rets_clientget_table_metadataresource-class)
     - [rets_client.get_object_metadata(resource)](#rets_clientget_object_metadataresource)
     - [rets_client.get_lookup_values(resource, lookup_name)](#rets_clientget_lookup_valuesresource-lookup_name)
+    - [Wildcards](#wildcards)
   - [Object Methods](#object-methods)
     - [rets_client.get_preferred_object(resource, object_type, content_id, location=0)](#rets_clientget_preferred_objectresource-object_type-content_id-location0)
     - [rets_client.get_object(resource, object_type, content_ids, object_ids='*', location=0)](#rets_clientget_objectresource-object_type-content_ids-object_ids-location0)
@@ -190,7 +191,14 @@ Returns the METADATA-OBJECT information for a resource in a list of dicts
 
 Returns the METADATA-LOOKUP_TYPE information for a field of a resource. The result is a list of the lookup values for the given lookup_name.
 
-Some RETS servers allow a wildcard `*` for the lookup name and will return all lookup values. In these cases, a dict is returned with the keys being each of the lookup_names and the values being the corresponding lists of values.
+### Wildcards
+
+Some RETS servers accept a wildcard `*` in place of a name, returning the metadata for every resource, class or lookup at once: for example `get_class_metadata('*')`, `get_table_metadata('Property', '*')` or `get_lookup_values('Property', '*')`. The shape of the result depends on the metadata format:
+
+- **COMPACT-DECODED**, the default, returns one list holding the entries for every name. Each entry carries the name it belongs to under the same key the server uses for it: `Resource` for classes and objects, `Class` for tables, and `Lookup` for lookup values.
+- **STANDARD-XML** returns a dict of lists, keyed by that name. A wildcard always returns a dict, even when it matches a single name.
+
+The session switches to STANDARD-XML when the server rejects COMPACT-DECODED, so check `rets_client.metadata_format` if your code has to handle either shape.
 
 ## Object Methods
 
