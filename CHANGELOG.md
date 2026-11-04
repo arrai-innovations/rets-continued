@@ -44,6 +44,7 @@
 * Forget the login when the server refuses a logout with a 401, since it has already ended the session, so later requests raise `NotLoggedIn` before reaching the server and leaving a `with Session(...)` block does not try to log out again. The logout still raises `NotLoggedIn`. Other logout failures, such as a 500 or a timeout, keep the login so logging out can be retried.
 * Count only the truncated response's own rows in `MaxrowException.rows_returned`. It held the parser's running total, which takes in every earlier page and search when a `search_parser` is reused. The parser's `parsed_rows` attribute is still that running total.
 * Read STANDARD-XML metadata responses that hold no entries. A wildcard that matches nothing returns an empty dict, a metadata element with no entries, such as a lookup without values, returns an empty list, or maps its name to one in a wildcard result, and an empty `METADATA` element no longer fails with an `AttributeError`. A response missing the requested metadata element entirely raises `ParseError` saying so.
+* Ignore the preamble of a multipart GetObject response, the text a server may send ahead of the first delimiter, which was returned as an extra object with every field `None`. Text there that has a `Content-ID`, `Object-ID` or `Content-Type` header is still read as the first object, for servers that leave out the first delimiter.
 
 ## 2.0.1
 

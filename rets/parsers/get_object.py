@@ -10,6 +10,9 @@ from rets.parsers.base import Base
 
 LINE_BREAK = re.compile(r"\r?\n")
 HEADER_END = re.compile(r"\r?\n\r?\n")
+# RETS requires each part of a multipart GetObject response to carry these, so text ahead of the first
+# delimiter with none of them is a preamble rather than a part.
+PART_HEADERS = frozenset(("content-id", "object-id", "content-type"))
 
 
 class ObjectParser(Base):
@@ -40,7 +43,23 @@ class MultipleObjectParser(ObjectParser):
     """Parses multiple object responses such as multiple images in a multi-part response"""
 
     @staticmethod
-    def _get_multiparts(response):
+    def _split_part(part):
+        """
+        Split a part of a multipart response into its headers and body
+        :param part: The part, between its delimiters
+        :return: tuple of the headers as a dict, and the body, or None if the part has none
+        """
+        # The headers end at the first blank line, whichever line endings the server uses.
+        if HEADER_END.search(part):
+            header, body = HEADER_END.split(part, maxsplit=1)
+        else:
+            header = part
+            body = None
+        headers = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in LINE_BREAK.split(header) if ":" in h)}
+        return headers, body
+
+    @classmethod
+    def _get_multiparts(cls, response):
         """
         From this
         'multipart/parallel; boundary="874e43d27ec6d83f30f37841bdaf90c7"; charset=utf-8'
@@ -63,7 +82,7 @@ class MultipleObjectParser(ObjectParser):
         # back gives exactly the bytes the server sent.
         response_string = response.content.decode("latin-1")
 
-        for part in response_string.split(boundary):
+        for index, part in enumerate(response_string.split(boundary)):
             if part.startswith("--"):
                 break  # The close delimiter. Anything after it is epilogue.
 
@@ -73,10 +92,16 @@ class MultipleObjectParser(ObjectParser):
             part = part.removeprefix("\r\n") if part.startswith("\r\n") else part.removeprefix("\n")
             part = part.removesuffix("\r\n") if part.endswith("\r\n") else part.removesuffix("\n")
 
-            # Skip the empty preamble before the first delimiter. A server that leaves out the first
-            # delimiter still has its first part read.
-            if part.strip():
-                yield part
+            if not part.strip():
+                continue
+            if index == 0:
+                # Text ahead of the first delimiter is a preamble, which MIME allows and readers ignore. A
+                # server that leaves out the first delimiter still has its first part read, since that has
+                # the headers a part needs.
+                headers, _body = cls._split_part(part)
+                if not PART_HEADERS.intersection(name.lower() for name in headers):
+                    continue
+            yield part
 
     def parse_image_response(self, response):
         """
@@ -94,15 +119,7 @@ class MultipleObjectParser(ObjectParser):
 
         # go through each part of the multipart message
         for part in multi_parts:
-            # The headers end at the first blank line, whichever line endings the server uses.
-            if HEADER_END.search(part):
-                header, body = HEADER_END.split(part, maxsplit=1)
-            else:
-                header = part
-                body = None
-            part_header_dict = {
-                k.strip(): v.strip() for k, v in (h.split(":", 1) for h in LINE_BREAK.split(header) if ":" in h)
-            }
+            part_header_dict, body = self._split_part(part)
 
             # Some multipart requests respond with a text/XML part stating an error
             if "xml" in part_header_dict.get("Content-Type", ""):

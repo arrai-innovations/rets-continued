@@ -364,6 +364,22 @@ class MultipartObjectTester(unittest.TestCase):
 
         self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"data")])
 
+    def test_preamble_is_ignored(self):
+        for preamble in (b"This is a multi-part message in MIME format.\r\n", b"\r\nSee below.\r\n\r\nThanks\r\n"):
+            with self.subTest(preamble=preamble):
+                objs = self.parse(preamble + b"--BOUND\r\nContent-ID: 1\r\nObject-ID: 1\r\n\r\ndata\r\n--BOUND--\r\n")
+
+                self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"data")])
+
+    def test_missing_first_delimiter(self):
+        # Text ahead of the first delimiter that has part headers is read as a part, not a preamble.
+        objs = self.parse(
+            b"Content-ID: 1\r\nObject-ID: 1\r\n\r\nfirst\r\n"
+            b"--BOUND\r\nContent-ID: 1\r\nObject-ID: 2\r\n\r\nsecond\r\n--BOUND--\r\n"
+        )
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"first"), ("2", b"second")])
+
     def test_xml_part_without_a_body(self):
         with self.assertRaises(ParseError):
             self.parse(b"--BOUND\r\nContent-Type: text/xml\r\n--BOUND--\r\n")
