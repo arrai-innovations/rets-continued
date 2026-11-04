@@ -1009,6 +1009,26 @@ class StatusCodeTester(unittest.TestCase):
 
         self.assertEqual(caught.exception.status_code, 500)
 
+    def test_refused_response_is_closed(self):
+        # The caller never sees a refused response, so its connection has to be released for them.
+        self.session.follow_redirects = False
+        cases = [
+            (401, {}, "Unauthorized", NotLoggedIn),
+            (500, {}, "Server Error", HTTPException),
+            (500, {}, '<RETS ReplyCode="20203" ReplyText="Miscellaneous search error."/>', RETSException),
+            (307, {"Location": "http://server.rets.com/rets/Search2.ashx"}, "", HTTPException),
+        ]
+        for status, headers, body, error in cases:
+            with self.subTest(status=status, error=error.__name__), responses.RequestsMock() as resps:
+                resps.add(
+                    resps.POST, "http://server.rets.com/rets/Search.ashx", body=body, status=status, headers=headers
+                )
+
+                with mock.patch.object(requests.Response, "close", autospec=True) as close:
+                    with self.assertRaises(error):
+                        self.search()
+                    close.assert_called_with(resps.calls[0].response)
+
     def test_redirect_is_followed(self):
         with responses.RequestsMock() as resps:
             resps.add(

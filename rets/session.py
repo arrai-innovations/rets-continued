@@ -585,7 +585,13 @@ class Session:
             self.client.auth = HTTPBasicAuth(self.username, self.password)
             return self._request(capability, options, stream)
 
-        self._raise_for_status(response=response, capability=capability)
+        try:
+            self._raise_for_status(response=response, capability=capability)
+        except Exception:
+            # The caller never gets the response, so release its connection here. A streamed one would
+            # otherwise hold it until garbage collection.
+            response.close()
+            raise
 
         return response
 
