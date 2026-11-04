@@ -40,6 +40,7 @@
 * Give `MaxrowException` a message saying the server truncated the search response, rather than only the row count.
 * Report the RETS reply code from a response that carries one with an HTTP error status, as a `RETSException`, instead of an `HTTPException` that only gives the status. Such a reply again moves metadata requests over to STANDARD-XML when the server rejects COMPACT-DECODED, and a search's "No Records Found" again returns no rows.
 * Close a response the session refuses because of its status, so a streamed search that fails, such as with a 401, releases its connection rather than holding it until garbage collection.
+* Explain a login refused over http by what the server's challenge says. The message used to blame digest authentication and suggest basic for any 400 or 401, including wrong credentials. It now points to basic only when the server accepts nothing else, reports wrong credentials when the server offered digest, and otherwise gives the status code and suggests checking the credentials first.
 
 ## 2.0.1
 

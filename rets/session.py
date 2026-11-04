@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import re
 from urllib.parse import quote
 from urllib.parse import urlparse
 
@@ -575,11 +576,7 @@ class Session:
             if urlparse(url).scheme != "https":
                 # Basic auth only base64 encodes the password, so over plain HTTP anyone on the path could
                 # read it. Leave that trade-off to the caller rather than downgrading on their behalf.
-                raise NotLoggedIn(
-                    "The RETS server rejected digest authentication. Not falling back to basic authentication, "
-                    "which would send the password unencrypted over HTTP. Use an https login URL, or pass "
-                    'http_auth="basic" to the Session to send it anyway.'
-                )
+                raise NotLoggedIn(self._digest_login_refused_message(response))
             # Fall back to base64 encoding auth method and try again
             self.http_authentication = "basic"
             self.client.auth = HTTPBasicAuth(self.username, self.password)
@@ -609,6 +606,33 @@ class Session:
             "Sending the RETS password with basic authentication over plain HTTP to %s, where anyone on the network "
             "path can read it. Use https URLs to keep it private.",
             urlparse(url).hostname,
+        )
+
+    @staticmethod
+    def _digest_login_refused_message(response):
+        """
+        Explain a login refused over plain HTTP, pointing to basic authentication only when the server asks for it
+        :param response: The refused login response
+        :return: str
+        """
+        # The challenge names the schemes the server accepts, such as 'Digest realm="x", Basic realm="x"'.
+        schemes = {
+            scheme.lower()
+            for scheme in re.findall(r"(?:^|,)\s*([A-Za-z]+)\s", response.headers.get("WWW-Authenticate", "") + " ")
+        }
+        unencrypted = (
+            "basic authentication, which would send the password unencrypted over HTTP. Use an https login URL, "
+            'or pass http_auth="basic" to the Session to send it anyway.'
+        )
+        if "basic" in schemes and "digest" not in schemes:
+            return f"The RETS server only accepts basic authentication. Not falling back to {unencrypted}"
+        if "digest" in schemes:
+            # The server took the digest attempt and still refused it, so switching schemes would not help.
+            return "Could not log into the RETS server with the provided credentials."
+        return (
+            f"The RETS server refused the login with a {response.status_code!s} status code. Check the username "
+            f"and password. If the server only accepts basic authentication, this session will not fall back to "
+            f"{unencrypted}"
         )
 
     def _raise_for_status(self, response, capability):

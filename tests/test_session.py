@@ -1392,6 +1392,32 @@ class LoginAuthFallbackTester(unittest.TestCase):
         self.assertEqual(session.http_authentication, "digest")
         self.assertIn('http_auth="basic"', str(caught.exception))
 
+    def test_refused_login_over_http_messages(self):
+        # Basic authentication is suggested only when the server asks for it, never for wrong credentials.
+        cases = [
+            ('Basic realm="rets"', 401, "only accepts basic authentication", True),
+            ('Digest realm="rets", nonce="abc", qop="auth"', 401, "with the provided credentials", False),
+            ('Digest realm="rets", nonce="abc", Basic realm="rets"', 401, "with the provided credentials", False),
+            (None, 400, "refused the login with a 400 status code. Check the username and password", True),
+        ]
+        for challenge, status, expected, suggests_basic in cases:
+            with self.subTest(challenge=challenge, status=status), responses.RequestsMock() as resps:
+                session = Session(
+                    login_url="http://server.rets.com/rets/Login.ashx",
+                    username="retsuser",
+                    password="retspassword",  # noqa: S106
+                    version="RETS/1.7.2",
+                )
+                headers = {"WWW-Authenticate": challenge} if challenge else {}
+                resps.add(resps.POST, "http://server.rets.com/rets/Login.ashx", body="", status=status, headers=headers)
+
+                with self.assertRaises(NotLoggedIn) as caught:
+                    session.login()
+
+            self.assertIn(expected, str(caught.exception))
+            self.assertEqual('http_auth="basic"' in str(caught.exception), suggests_basic)
+            self.assertEqual(session.http_authentication, "digest")
+
     def test_explicit_basic_over_http(self):
         with open("tests/rets_responses/Login.xml") as f:
             contents = "".join(f.readlines())
