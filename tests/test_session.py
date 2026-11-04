@@ -397,6 +397,34 @@ class SessionTester(unittest.TestCase):
                 search_filter={"Status": {"$not": "unsupported"}},
             )
 
+    def test_standard_xml_search_needs_a_search_parser(self):
+        # The built-in parser would find no COMPACT rows in the response and quietly return nothing.
+        cases = [
+            {"response_format": "STANDARD-XML"},
+            {"response_format": "STANDARD-XML:1.7.2"},
+            {"optional_parameters": {"Format": "STANDARD-XML"}},
+        ]
+        for kwargs in cases:
+            with self.subTest(**kwargs), self.assertRaises(ValueError) as caught:
+                # Raised from the call itself, before any request; there is no mock to answer one.
+                self.session.search(resource="Property", resource_class="RES", dmql_query="(ID=1)", **kwargs)
+            self.assertIn("search_parser", str(caught.exception))
+
+    def test_standard_xml_search_with_a_search_parser(self):
+        with open("tests/rets_responses/CREA-STANDARD-XML/Search.xml") as f:
+            contents = "".join(f.readlines())
+        self.session.search_parser = CreaStandardXParser()
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=contents, status=200)
+            results = list(
+                self.session.search(
+                    resource="Property", resource_class="Property", dmql_query="(ID=1)", response_format="STANDARD-XML"
+                )
+            )
+
+        self.assertEqual([r["ListingID"] for r in results], ["30707930"])
+
     def test_search_defers_the_request_until_iterated(self):
         """Only validation is eager; no request is made until the generator is consumed."""
         with open("tests/rets_responses/COMPACT-DECODED/Search.xml") as f:

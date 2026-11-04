@@ -387,7 +387,8 @@ class Session:
         :param auto_offset: Should the search be allowed to trigger subsequent searches.
         :param query_type: DMQL or DMQL2 depending on the rets server.
         :param standard_names: 1 to use standard names, 0 to use system names
-        :param response_format: COMPACT-DECODED, COMPACT, or STANDARD-XML
+        :param response_format: COMPACT-DECODED, COMPACT, or STANDARD-XML. STANDARD-XML needs the Session's
+        search_parser, since the built-in parser only reads the COMPACT formats.
         :return: generator of dicts
         """
 
@@ -425,8 +426,15 @@ class Session:
         if offset:
             parameters["Offset"] = offset
 
-        if self.search_parser:  # noqa: SIM108
+        if self.search_parser:
             search_cursor = self.search_parser
+        elif str(parameters["Format"]).upper().startswith("STANDARD-XML"):
+            # The built-in parser reads COMPACT rows. A STANDARD-XML response has none, so it would quietly
+            # return no results, however many the server sent.
+            raise ValueError(
+                "Searching with the STANDARD-XML format needs a search_parser, since the built-in parser only "
+                "reads COMPACT and COMPACT-DECODED results. Pass one to the Session, or use a COMPACT format."
+            )
         else:
             search_cursor = OneXSearchCursor()
 

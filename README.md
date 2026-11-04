@@ -234,7 +234,7 @@ The search method takes the following parameters:
 - query_type: The query type to submit as. Defaults to `DMQL2`
 - standard_names: Boolean for if the search uses standard names.
     Defaults to `0` indicating the search uses system field names
-- response_format: The format of the response you would like back, defaults to `COMPACT-DECODED`
+- response_format: The format of the response you would like back: `COMPACT-DECODED` (the default), `COMPACT` or `STANDARD-XML`. The built-in parser only reads the two COMPACT formats, so a `STANDARD-XML` search needs a [custom results parser](#custom-results-parser), and raises `ValueError` without one.
 
 The resource and resource_class parameters are required. You must also provide either the search_filter parameter or the dmql_query parameter.
 
@@ -350,9 +350,9 @@ Searches with the RETS client return a generator of dictionaries that represents
 
 ### Custom Results Parser
 
-Some RETS servers return non-standard search result responses. In these cases it is useful to create your own parser class. This class must define a method `generator` that takes a single argument of the rets server response. A simple example of this can be found in the [CREA Test](tests/custom_parser_example.py) file.
+Some RETS servers return non-standard search result responses, and STANDARD-XML results have no fixed layout for the built-in parser to read. In these cases it is useful to create your own parser class. This class must define a method `generator` that takes a single argument of the rets server response. A simple example of this can be found in the [CREA Test](tests/custom_parser_example.py) file.
 
-When the Session is instantiated, pass the and instance of the class as the `search_parser` class.
+When the Session is instantiated, pass an instance of the class as the `search_parser` argument.
 
 ## RETS Exceptions
 
