@@ -212,6 +212,21 @@ class SearchTester(unittest.TestCase):
         res1 = self.search_interpreter.filter_to_dmql(filter_dict=dict1)
         self.assertEqual("(Baths=~2)", res1)
 
+    def test_neq_datetime(self):
+        # The same formats as a plain equality filter, rather than str()'s "2026-01-02 03:04:05.600000".
+        cases = [
+            (datetime.datetime(2026, 1, 2, 3, 4, 5, 600000), "(ListDate=~2026-01-02T03:04:05)"),
+            (datetime.date(2026, 1, 2), "(ListDate=~2026-01-02)"),
+            (datetime.time(3, 4, 5, 600000), "(ListDate=~03:04:05)"),
+        ]
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(self.search_interpreter.filter_to_dmql({"ListDate": {"$neq": value}}), expected)
+                # Matching the equality filter for the same value.
+                self.assertEqual(
+                    self.search_interpreter.filter_to_dmql({"ListDate": value}).replace("=", "=~"), expected
+                )
+
     def test_raise_none(self):
         with self.assertRaises(TypeError):
             self.search_interpreter.filter_to_dmql(filter_dict=None)

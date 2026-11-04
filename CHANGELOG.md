@@ -34,6 +34,7 @@
 * Return a dict of lists from every STANDARD-XML wildcard metadata request, even one that matches a single name, which used to come back as a plain list. Document the shape of wildcard results in each format: COMPACT-DECODED returns one list whose entries name their resource, class or lookup, while STANDARD-XML returns a dict of lists keyed by that name.
 * Resume a truncated search at the record after the last one received. RETS numbers records from 1, but a search started without an offset resumed at `Offset` equal to the number of rows received, so the server sent the last row of each page again.
 * Leave the caller's search filter unchanged when formatting `$in` and `$nin` values. Their lists were replaced in the filter dict with formatted copies, so any dates in them came back as strings.
+* Format `$neq` datetime and time values the way the other filters do, such as `2026-01-02T03:04:05`. They were sent as Python's `str()` of the value, `2026-01-02 03:04:05.600000`, which is not the RETS date-time format.
 
 ## 2.0.1
 

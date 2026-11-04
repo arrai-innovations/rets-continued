@@ -150,7 +150,8 @@ class DMQLHelper:
                     string = "*{}".format(key_dict["$ends"])
 
                 elif "$neq" in key_dict:
-                    string = "~{}".format(key_dict["$neq"])
+                    # Formatted like a plain equality value, so a datetime gets the RETS "T" separator.
+                    string = "~{}".format(evaluate_datetime(key_dict["$neq"]))
 
             else:
                 # Provided too many or too few operators
