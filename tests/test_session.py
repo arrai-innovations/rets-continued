@@ -1229,6 +1229,33 @@ class LogoutStateTester(unittest.TestCase):
         self.assertIn("Logout", self.session.capabilities)
         self.assertEqual(self.session.session_id, "abc123")
 
+    def test_logout_refused_with_a_401_forgets_the_login(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=401)
+            self.session.login()
+
+            with self.assertRaises(NotLoggedIn):
+                self.session.logout()
+
+            # The server has already ended the session, so nothing is left to retry with it.
+            self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
+            self.assertIsNone(self.session.session_id)
+            self.assertEqual(len(self.session.client.cookies), 0)
+            with self.assertRaises(NotLoggedIn):
+                self.session.get_system_metadata()
+            self.assertEqual(len(resps.calls), 2)
+
+    def test_with_block_after_a_401_logout_does_not_log_out_again(self):
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=401)
+
+            with self.session as s, self.assertRaises(NotLoggedIn):
+                s.logout()
+
+            self.assertEqual([call.request.url for call in resps.calls], [self.LOGIN_URL, self.LOGOUT_URL])
+
     def test_logout_inside_a_with_block(self):
         with responses.RequestsMock() as resps:
             self.add_login(resps)
