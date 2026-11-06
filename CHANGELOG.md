@@ -52,6 +52,7 @@
 * Log out when a `with Session(...)` block fails to start because the Action transaction failed after the login succeeded. The block never ran, so leaving it did not log out, and the session stayed open on the server until it timed out. A failed logout is logged as a warning, and the Action failure is raised. Calling `login()` directly still leaves the session logged in.
 * Name only the authentication methods actually tried when the server refuses a login. The message always said "in basic or digest", even for `http_auth="basic"`, where digest is never tried. It now says "using basic authentication" in that case, and "using digest or basic authentication" only after falling back from digest.
 * Read RETS reply codes the same way in every response: from the `RETS` element, from a `RETS-STATUS` element inside it, and from a `RETS-STATUS` element sent as the whole response. Login, metadata, GetObject and search responses ignored a `RETS-STATUS` inside `RETS`, so an error reported there went unnoticed, and a `RETS-STATUS` response reporting success failed with a `KeyError`. A search response without any reply code no longer raises a `RETSException` without a code.
+* Read an XML error part in a multipart GetObject response up to the end of its root element, rather than up to the first `/>`. A reply code in a `RETS-STATUS` inside `RETS`, such as an object not found, was cut off mid-document and failed with an `ExpatError` instead of being skipped or raised. Characters some servers send after the XML are still dropped.
 
 ## 2.0.1
 

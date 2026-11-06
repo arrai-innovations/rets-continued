@@ -687,6 +687,42 @@ class MultipartObjectTester(unittest.TestCase):
 
         self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("2", b"found")])
 
+    def test_object_not_found_in_a_nested_rets_status(self):
+        # The RETS-STATUS closes itself inside RETS, so the part does not end at the first "/>".
+        objs = self.parse(
+            b"--BOUND\r\nContent-Type: text/xml\r\n\r\n"
+            b'<RETS ReplyCode="0" ReplyText="ok"><RETS-STATUS ReplyCode="20403" ReplyText="No object"/></RETS>'
+            b"trailing\r\n"
+            b"--BOUND\r\nObject-ID: 2\r\n\r\nfound\r\n--BOUND--\r\n"
+        )
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("2", b"found")])
+
+    def test_error_in_a_nested_rets_status(self):
+        with self.assertRaises(RETSException) as caught:
+            self.parse(
+                b"--BOUND\r\nContent-Type: text/xml\r\n\r\n"
+                b'<?xml version="1.0"?>\r\n<RETS ReplyCode="0">\r\n'
+                b'<RETS-STATUS ReplyCode="20409" ReplyText="Timeout"/>\r\n</RETS>\r\n'
+                b"--BOUND--\r\n"
+            )
+
+        self.assertEqual(caught.exception.reply_code, "20409")
+
+    def test_xml_part_cut_to_its_root_element(self):
+        cases = {
+            b'<RETS ReplyCode="20403"/>junk': b'<RETS ReplyCode="20403"/>',
+            b'<?xml version="1.0"?><RETS ReplyCode="20403"/>junk': b'<?xml version="1.0"?><RETS ReplyCode="20403"/>',
+            b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20403"/></RETS>junk': (
+                b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20403"/></RETS>'
+            ),
+            b'<RETS-STATUS ReplyCode="20403"></RETS-STATUS>junk': b'<RETS-STATUS ReplyCode="20403"></RETS-STATUS>',
+            b"no element": b"no element",
+        }
+        for body, expected in cases.items():
+            with self.subTest(body=body):
+                self.assertEqual(MultipleObjectParser._root_element(body), expected)
+
     def test_content_is_bytes_with_its_md5(self):
         content = bytes(range(256))
         objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\n" + content + b"\r\n--BOUND--\r\n")

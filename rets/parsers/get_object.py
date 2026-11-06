@@ -10,6 +10,8 @@ from rets.parsers.base import Base
 
 LINE_BREAK = re.compile(r"\r?\n")
 HEADER_END = re.compile(rb"\r?\n\r?\n")
+# The start of an element, which skips an XML declaration, a comment or a closing tag.
+ELEMENT_START = re.compile(rb"<([A-Za-z_][\w.:-]*)")
 # A byte that is not whitespace once decoded as latin-1. A part holding none of them is empty.
 NOT_WHITESPACE = re.compile(rb"[^\t\n\x0b\x0c\r\x1c-\x1f \x85\xa0]")
 # RETS requires each part of a multipart GetObject response to carry these, so text ahead of the first
@@ -117,6 +119,27 @@ class MultipleObjectParser(ObjectParser):
                 return  # The close delimiter. Anything after it is epilogue.
             first = False
 
+    @staticmethod
+    def _root_element(body):
+        """
+        Cut an XML part down to its root element. Some RETS servers send characters after it, which would
+        otherwise fail the parse.
+        :param body: The XML part's body
+        :return: bytes
+        """
+        root = ELEMENT_START.search(body)
+        if not root:
+            return body
+        name = root.group(1)
+        start_tag_end = body.find(b">", root.end())
+        if start_tag_end != -1 and body[start_tag_end - 1 : start_tag_end] == b"/":
+            # The root closes itself, as <RETS ReplyCode="20403"/> does.
+            return body[: start_tag_end + 1]
+        # Otherwise it ends at its closing tag, after any children such as a RETS-STATUS.
+        closing_tag = b"</" + name + b">"
+        close = body.find(closing_tag, root.end())
+        return body if close == -1 else body[: close + len(closing_tag)]
+
     def parse_image_response(self, response):
         """
         Parse multiple objects from the RETS feed
@@ -130,12 +153,10 @@ class MultipleObjectParser(ObjectParser):
             # Some multipart requests respond with a text/XML part stating an error
             if "xml" in part_header_dict.get("Content-Type", ""):
                 # Got an XML response, likely an error code.
-                # Some rets servers give characters after the closing brace.
                 if not body:
                     raise ParseError("Got an XML part in a multipart response, but it has no body")
-                body = body[: body.index(b"/>") + 2] if b"/>" in body else body
                 # Decoded as latin-1, as before, so a reply text in another encoding still parses.
-                xml = xmltodict.parse(body.decode("latin-1"))
+                xml = xmltodict.parse(self._root_element(body).decode("latin-1"))
                 try:
                     self.analyze_reply_code(xml_response_dict=xml)
                 except RETSException as e:
