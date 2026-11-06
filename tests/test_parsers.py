@@ -235,11 +235,9 @@ class CompactWildcardMetadataTester(unittest.TestCase):
         + compact_lookup("Agent", "Status", "B")
     )
 
-    def parse(self, metadata_type, elements, meta_id=None, wildcard=False):
+    def parse(self, metadata_type, elements, meta_id=None):
         response = FakeResponse(f'<RETS ReplyCode="0">{elements}</RETS>')
-        return CompactMetadata().parse(
-            response=response, metadata_type=metadata_type, meta_id=meta_id, wildcard=wildcard
-        )
+        return CompactMetadata().parse(response=response, metadata_type=metadata_type, meta_id=meta_id)
 
     @staticmethod
     def values(result):
@@ -324,12 +322,6 @@ class CompactWildcardMetadataTester(unittest.TestCase):
                 meta_id="Property:*",
             )
 
-    def test_wildcard_without_the_id(self):
-        self.assertEqual(
-            list(self.parse("METADATA-LOOKUP_TYPE", compact_lookup("Property", "Status", "A"), wildcard=True)),
-            ["Status"],
-        )
-
     def test_id_without_a_wildcard_is_a_list(self):
         # Without a wildcard the rows stay in one list, even when the server sends several elements.
         self.assertEqual(
@@ -371,11 +363,9 @@ class CompactWildcardMetadataTester(unittest.TestCase):
 class StandardXMLWildcardMetadataTester(unittest.TestCase):
     """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
 
-    def parse(self, metadata_type, elements, wildcard=False, meta_id=None):
+    def parse(self, metadata_type, elements, meta_id=None):
         response = FakeResponse(f'<RETS ReplyCode="0"><METADATA>{elements}</METADATA></RETS>')
-        return StandardXMLMetadata().parse(
-            response=response, metadata_type=metadata_type, meta_id=meta_id, wildcard=wildcard
-        )
+        return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type, meta_id=meta_id)
 
     def test_classes_keyed_by_resource(self):
         self.assertEqual(
@@ -439,7 +429,7 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
         # The result has the same type as when the wildcard matches several names.
         element = '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
 
-        self.assertEqual(self.parse("METADATA-CLASS", element, wildcard=True), {"Property": [{"ClassName": "RES"}]})
+        self.assertEqual(self.parse("METADATA-CLASS", element, meta_id="*"), {"Property": [{"ClassName": "RES"}]})
         self.assertEqual(self.parse("METADATA-CLASS", element), [{"ClassName": "RES"}])
 
     STATUS_LOOKUPS = (
@@ -513,12 +503,6 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
 
         self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", element, meta_id="Property:Status"), [{"Value": "A"}])
 
-    def test_meta_id_takes_precedence_over_wildcard(self):
-        self.assertEqual(
-            list(self.parse("METADATA-LOOKUP_TYPE", self.STATUS_LOOKUPS, wildcard=True, meta_id="*:*")),
-            ["Property", "Agent"],
-        )
-
     def test_nested_wildcard_with_a_repeated_element(self):
         elements = self.STATUS_LOOKUPS + (
             '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><LookupType><Value>C</Value></LookupType>'
@@ -545,7 +529,7 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
             with self.subTest(metadata=metadata):
                 response = FakeResponse(f'<RETS ReplyCode="0">{metadata}</RETS>')
                 self.assertEqual(
-                    StandardXMLMetadata().parse(response=response, metadata_type="METADATA-CLASS", wildcard=True), {}
+                    StandardXMLMetadata().parse(response=response, metadata_type="METADATA-CLASS", meta_id="*"), {}
                 )
 
     def test_wildcard_name_with_no_entries(self):
@@ -555,17 +539,18 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
                 "METADATA-LOOKUP_TYPE",
                 '<METADATA-LOOKUP_TYPE Lookup="Area"><LookupType><Value>N</Value></LookupType></METADATA-LOOKUP_TYPE>'
                 '<METADATA-LOOKUP_TYPE Lookup="Empty" Version="1.0"/>',
-                wildcard=True,
+                meta_id="Property:*",
             ),
             {"Area": [{"Value": "N"}], "Empty": []},
         )
         self.assertEqual(
-            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Lookup="Empty"/>', wildcard=True), {"Empty": []}
+            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Lookup="Empty"/>', meta_id="Property:*"),
+            {"Empty": []},
         )
 
     def test_wildcard_skips_an_unnamed_element_with_no_entries(self):
         self.assertEqual(
-            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Version="1.0"/>', wildcard=True),
+            self.parse("METADATA-LOOKUP_TYPE", '<METADATA-LOOKUP_TYPE Version="1.0"/>', meta_id="Property:*"),
             {},
         )
 

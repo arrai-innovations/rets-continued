@@ -35,17 +35,16 @@ class MetadataParser(Base):
         child = element.get(name) if isinstance(element, dict) else None
         return child if isinstance(child, dict) else {}
 
-    def _wildcard_attributes(self, metadata_type, meta_id, wildcard):
+    def _wildcard_attributes(self, metadata_type, meta_id):
         """
         Get the attributes a wildcard result is keyed by, outermost first
         :param metadata_type: string
         :param meta_id: The ID the metadata was requested with, or None
-        :param wildcard: Whether to treat the last part of the ID as a wildcard, when meta_id is None
         :return: tuple of attribute names, empty for a request without a wildcard
         """
         attributes = self.id_attributes.get(metadata_type, ())
         if meta_id is None:
-            return attributes[-1:] if wildcard else ()
+            return ()
         return tuple(attribute for part, attribute in zip(str(meta_id).split(":"), attributes) if part == "*")
 
     @staticmethod
@@ -83,15 +82,13 @@ class MetadataParser(Base):
 class CompactMetadata(MetadataParser):
     """Parses COMPCACT-DECODED RETS responses"""
 
-    def parse(self, response, metadata_type, meta_id=None, wildcard=False):
+    def parse(self, response, metadata_type, meta_id=None):
         """
         Parses RETS metadata using the COMPACT-DECODED format
         :param response: requests Response object
         :param metadata_type: string
         :param meta_id: The ID the metadata was requested with, such as "Property:*". A "*" in place of a part
         gets a dict back, keyed as the STANDARD-XML parser keys it.
-        :param wildcard: For a caller without the ID: treat it as a wildcard in the last part, such as
-        "Property:*". Ignored when meta_id is given.
         :return: list of the rows, each carrying the attributes of its metadata element, or a dict of lists of
         them for a wildcard request
         """
@@ -106,7 +103,7 @@ class CompactMetadata(MetadataParser):
         # whitespace is kept, one holding only a line break as that text.
         elements = [element for element in (base if isinstance(base, list) else [base]) if isinstance(element, dict)]
 
-        key_by = self._wildcard_attributes(metadata_type, meta_id, wildcard)
+        key_by = self._wildcard_attributes(metadata_type, meta_id)
         if key_by:
             # Grouped per element rather than per row, so a name with no rows still maps to an empty list.
             named_entries = ((self.get_attributes(element), list(self._parse_element(element))) for element in elements)
@@ -207,7 +204,7 @@ class StandardXMLMetadata(MetadataParser):
             raise ParseError(msg)
         return key_cap
 
-    def parse(self, response, metadata_type, meta_id=None, wildcard=False):
+    def parse(self, response, metadata_type, meta_id=None):
         """
         Parses RETS metadata using the STANDARD-XML format
         :param response: requests Response object
@@ -216,8 +213,6 @@ class StandardXMLMetadata(MetadataParser):
         gets a dict back, even when it matched a single name, keyed by the attribute that part names: "*:Status"
         is keyed by resource, and "Property:*" by lookup. A "*" in both parts gets a dict of dicts, keyed by
         resource and then by lookup or class.
-        :param wildcard: For a caller without the ID: treat it as a wildcard in the last part, such as
-        "Property:*". Ignored when meta_id is given.
         :return parsed: list, or a dict of lists for a wildcard request or when the response holds several
         metadata elements
         """
@@ -232,7 +227,7 @@ class StandardXMLMetadata(MetadataParser):
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
 
-        key_by = self._wildcard_attributes(metadata_type, meta_id, wildcard)
+        key_by = self._wildcard_attributes(metadata_type, meta_id)
         if metadata_type not in metadata:
             if key_by:
                 # The wildcard matched nothing.
