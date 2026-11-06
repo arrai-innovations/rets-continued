@@ -1462,7 +1462,53 @@ class LoginAuthFallbackTester(unittest.TestCase):
             with self.assertRaises(NotLoggedIn) as caught:
                 session.login()
 
-        self.assertIn("basic or digest", str(caught.exception))
+        self.assertIn("using digest or basic authentication", str(caught.exception))
+
+    def test_refused_basic_login_names_only_basic(self):
+        # Digest was never tried, so the message must not send the caller to look into it.
+        session = Session(
+            login_url="https://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+            http_auth="basic",
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+
+            with self.assertRaises(NotLoggedIn) as caught:
+                session.login()
+            self.assertEqual(len(resps.calls), 1)
+
+        self.assertEqual(
+            str(caught.exception),
+            "Could not log into the RETS server with the provided credentials, using basic authentication.",
+        )
+
+    def test_refused_login_after_an_earlier_fallback_names_only_basic(self):
+        # The session keeps basic auth once it has fallen back, so a later login tries nothing else.
+        session = Session(
+            login_url="https://server.rets.com/rets/Login.ashx",
+            username="retsuser",
+            password="retspassword",  # noqa: S106
+            version="RETS/1.7.2",
+        )
+        login_contents = (
+            '<RETS ReplyCode="0" ReplyText="Success">\r\n<RETS-RESPONSE>\r\n'
+            "Login=https://server.rets.com/rets/Login.ashx\r\n</RETS-RESPONSE>\r\n</RETS>"
+        )
+
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body=login_contents, status=200)
+            resps.add(resps.POST, "https://server.rets.com/rets/Login.ashx", body="", status=401)
+
+            session.login()
+            with self.assertRaises(NotLoggedIn) as caught:
+                session.login()
+
+        self.assertIn("using basic authentication", str(caught.exception))
 
     def test_no_fallback_over_http(self):
         # Retrying with basic auth would put the password on the wire in cleartext.

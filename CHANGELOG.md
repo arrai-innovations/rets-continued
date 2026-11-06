@@ -49,6 +49,7 @@
 * Key a STANDARD-XML wildcard result by the part of the ID that holds the `*`. A wildcard resource, as in `get_lookup_values('*', 'Status')` or `get_table_metadata('*', 'RES')`, raised `ParseError` whenever two resources shared a lookup or class name, since the result was always keyed by that name. It is now keyed by resource, and a wildcard in both parts returns a dict of dicts, keyed by resource and then by lookup or class. `StandardXMLMetadata.parse()` takes the requested `meta_id` to tell which part holds the wildcard.
 * Read a COMPACT-DECODED metadata element that has no attributes and no entries, such as `<METADATA-LOOKUP_TYPE/>`, as empty, rather than failing with an `AttributeError`. In a wildcard response, such an element no longer fails the entries of the others.
 * Log out when a `with Session(...)` block fails to start because the Action transaction failed after the login succeeded. The block never ran, so leaving it did not log out, and the session stayed open on the server until it timed out. A failed logout is logged as a warning, and the Action failure is raised. Calling `login()` directly still leaves the session logged in.
+* Name only the authentication methods actually tried when the server refuses a login. The message always said "in basic or digest", even for `http_auth="basic"`, where digest is never tried. It now says "using basic authentication" in that case, and "using digest or basic authentication" only after falling back from digest.
 
 ## 2.0.1
 

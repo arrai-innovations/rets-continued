@@ -541,11 +541,12 @@ class Session:
             # covers a caller that stops iterating early, and a parser that raises.
             response.close()
 
-    def _request(self, capability, options=None, stream=False):
+    def _request(self, capability, options=None, stream=False, *, auth_fallback=False):
         """
         Make a _request to the RETS server
         :param capability: The name of the capability to use to get the URI
         :param options: Options to put into the _request
+        :param auth_fallback: Whether this is a login retried with basic auth after the server refused digest
         :return: Response
         """
         if options is None:
@@ -598,10 +599,10 @@ class Session:
             # Fall back to base64 encoding auth method and try again
             self.http_authentication = "basic"
             self.client.auth = HTTPBasicAuth(self.username, self.password)
-            return self._request(capability, options, stream)
+            return self._request(capability, options, stream, auth_fallback=True)
 
         try:
-            self._raise_for_status(response=response, capability=capability)
+            self._raise_for_status(response=response, capability=capability, auth_fallback=auth_fallback)
         except Exception:
             # The caller never gets the response, so release its connection here. A streamed one would
             # otherwise hold it until garbage collection.
@@ -653,16 +654,20 @@ class Session:
             f"{unencrypted}"
         )
 
-    def _raise_for_status(self, response, capability):
+    def _raise_for_status(self, response, capability, auth_fallback=False):
         """
         Turn a status code the server refused the request with into the most specific exception
         :param response: The response from the RETS server
         :param capability: The name of the capability that was requested
+        :param auth_fallback: Whether this is a login retried with basic auth after the server refused digest
         :return: None
         """
         if capability == "Login" and response.status_code in [400, 401]:
-            # Both authentication methods have been tried by the time we get here.
-            raise NotLoggedIn("Could not log into the RETS server with the provided credentials in basic or digest.")
+            # Name only the methods actually tried, so the caller looks into the right one.
+            methods = "digest or basic" if auth_fallback else self.http_authentication
+            raise NotLoggedIn(
+                f"Could not log into the RETS server with the provided credentials, using {methods!s} authentication."
+            )
 
         if response.status_code == 401:
             raise NotLoggedIn("The RETS server returned a 401 status code. You must be logged in to make this request.")
