@@ -2,6 +2,8 @@ import hashlib
 import io
 import unittest
 
+import xmltodict
+
 from rets.exceptions import MaxrowException
 from rets.exceptions import ParseError
 from rets.exceptions import RETSException
@@ -13,6 +15,7 @@ from rets.parsers.metadata import CompactMetadata
 from rets.parsers.metadata import StandardXMLMetadata
 from rets.parsers.search import OneXSearchCursor
 from rets.parsers.search import ResponseStream
+from rets.session import Session
 
 
 SYSTEM_RESPONSE = (
@@ -957,6 +960,54 @@ class ReplyCodeLocationTester(unittest.TestCase):
         response = ChunkedResponse([b"<RETS><COLUMNS>\tListingID\t</COLUMNS><DATA>\t1\t</DATA></RETS>"])
 
         self.assertEqual(list(OneXSearchCursor().generator(response=response)), [{"ListingID": "1"}])
+
+
+class ReplyCodeReadersAgreeTester(unittest.TestCase):
+    """The xmltodict, ElementTree and streaming readers find the same reply code in the same response"""
+
+    # Each body, and the error reply code every reader must find in it, or None.
+    BODIES = {  # noqa: RUF012
+        '<RETS ReplyCode="20203"/>': "20203",
+        '<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20203"/></RETS>': "20203",
+        '<RETS-STATUS ReplyCode="20203"/>': "20203",
+        # The first error wins, from the RETS element before a RETS-STATUS inside it.
+        '<RETS ReplyCode="20203"><RETS-STATUS ReplyCode="20209"/></RETS>': "20203",
+        # Every repeated RETS-STATUS is read, not only the first.
+        '<RETS ReplyCode="0"><RETS-STATUS ReplyCode="0"/><RETS-STATUS ReplyCode="20209"/></RETS>': "20209",
+        # A RETS-STATUS anywhere else is not where a reply code is reported.
+        '<RETS ReplyCode="0"><OTHER><RETS-STATUS ReplyCode="20203"/></OTHER></RETS>': None,
+        '<HTML><RETS-STATUS ReplyCode="20203"/></HTML>': None,
+        '<RETS ReplyCode="0"/>': None,
+    }
+
+    @staticmethod
+    def xmltodict_reader(body):
+        try:
+            Base().analyze_reply_code(xmltodict.parse(body))
+        except RETSException as e:
+            return e.reply_code
+        return None
+
+    @staticmethod
+    def tree_reader(body):
+        error = Session._rets_error_reply(FakeResponse(body))
+        return error[0] if error else None
+
+    @staticmethod
+    def stream_reader(body):
+        try:
+            list(OneXSearchCursor().generator(response=ChunkedResponse([body.encode()])))
+        except RETSException as e:
+            return e.reply_code
+        return None
+
+    def test_readers_agree(self):
+        for body, reply_code in self.BODIES.items():
+            for reader in (self.tree_reader, self.stream_reader, self.xmltodict_reader):
+                if reader is self.xmltodict_reader and body.startswith("<HTML>"):
+                    continue  # The parsers only read RETS responses, and raise for any other document.
+                with self.subTest(body=body, reader=reader.__name__):
+                    self.assertEqual(reader(body), reply_code)
 
 
 class ResponseStreamTester(unittest.TestCase):

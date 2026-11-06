@@ -15,7 +15,7 @@ from rets.exceptions import MaxrowException
 from rets.exceptions import MissingVersion
 from rets.exceptions import NotLoggedIn
 from rets.exceptions import RETSException
-from rets.parsers.base import reply_code_error
+from rets.parsers.base import reply_code_error_in_tree
 from rets.parsers.get_object import MultipleObjectParser
 from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
@@ -713,18 +713,7 @@ class Session:
             # Not XML, or XML that defusedxml refuses to read, so there is no reply code to report.
             return None
 
-        # The reply code is on the RETS element, or on a RETS-STATUS element inside it or in its place.
-        if root.tag == "RETS":
-            statuses = (root, root.find("RETS-STATUS"))
-        elif root.tag == "RETS-STATUS":
-            statuses = (root,)
-        else:
-            return None
-        for status in statuses:
-            error = reply_code_error(status.attrib) if status is not None else None
-            if error:
-                return error
-        return None
+        return reply_code_error_in_tree(root)
 
     def _user_agent_digest_hash(self):
         """

@@ -5,6 +5,7 @@ from defusedxml.ElementTree import iterparse
 
 from rets.exceptions import MaxrowException
 from rets.exceptions import RETSException
+from rets.parsers.base import REPLY_CODE_PATHS
 from rets.parsers.base import Base
 from rets.parsers.base import reply_code_error
 
@@ -54,17 +55,17 @@ class OneXSearchCursor(Base):
         columns = []
         rows = 0  # rows in this response, whatever earlier responses this parser has read
         root = None
-        depth = 0
+        path = []  # the names of the elements leading to the current one, from the root
         events = iterparse(ResponseStream(response), events=("start", "end"))
 
         for event, elem in events:
             if event == "start":
-                depth += 1
-                if depth == 1:
+                path.append(elem.tag)
+                if len(path) == 1:
                     root = elem
-                self._check_reply_code(elem, depth)
+                self._check_reply_code(elem, path)
                 continue
-            depth -= 1
+            path.pop()
 
             # Analyze search record data
             if elem.tag == "DATA":
@@ -92,21 +93,20 @@ class OneXSearchCursor(Base):
                 logger.debug("The response held %s rows before MAXROWS", rows)
                 raise MaxrowException(rows)
 
-            if depth == 1 and root is not None:
+            if len(path) == 1 and root is not None:
                 # The element has been dealt with, so drop it rather than keep every row attached to the
                 # root until the response ends.
                 root.remove(elem)
 
     @staticmethod
-    def _check_reply_code(elem, depth):
+    def _check_reply_code(elem, path):
         """
         Raise for a reply code that reports an error, as soon as the element holding it opens
         :param elem: An element that has just opened
-        :param depth: How deep the element is in the response, 1 for the root
+        :param path: The names of the elements leading to it from the root, its own included
         :return: None
         """
-        # The reply code is on the RETS element, or on a RETS-STATUS element inside it or in its place.
-        if elem.tag not in ("RETS", "RETS-STATUS") or depth > 2:
+        if tuple(path) not in REPLY_CODE_PATHS:
             return
         # RETS Response 20201 - No Records Found. The search simply returns nothing.
         error = reply_code_error(elem.attrib, ignore=("0", "20201"))

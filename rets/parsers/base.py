@@ -9,6 +9,11 @@ logger = logging.getLogger("rets")
 
 NO_REPLY_TEXT = "RETS did not supply a Reply Text."
 
+# Where a response carries its RETS reply code, as the names of the elements leading to it from the document root:
+# the RETS element, a RETS-STATUS element inside it, or a RETS-STATUS element sent as the whole response. Every
+# reader of reply codes looks in these places, in this order, so they agree on where an error is reported.
+REPLY_CODE_PATHS = (("RETS",), ("RETS", "RETS-STATUS"), ("RETS-STATUS",))
+
 
 def reply_code_error(attributes, ignore=("0",)):
     """
@@ -26,6 +31,43 @@ def reply_code_error(attributes, ignore=("0",)):
     if reply_code in ignore:
         return None
     return reply_code, reply_text
+
+
+def reply_code_error_in_document(document, ignore=("0",)):
+    """
+    Finds the first error reply code in a response parsed by xmltodict
+    :param document: The response, as parsed by xmltodict
+    :param ignore: The reply codes that do not report an error
+    :return: The (reply_code, reply_text) of an error reply code, or None
+    """
+    for path in REPLY_CODE_PATHS:
+        elements = [document]
+        for name in path:
+            # xmltodict gives a repeated element as a list, and one with no attributes as None or its text.
+            children = (element.get(name) for element in elements if isinstance(element, dict))
+            elements = [child for value in children for child in (value if isinstance(value, list) else [value])]
+        for element in elements:
+            error = reply_code_error(Base.get_attributes(element), ignore) if isinstance(element, dict) else None
+            if error:
+                return error
+    return None
+
+
+def reply_code_error_in_tree(root, ignore=("0",)):
+    """
+    Finds the first error reply code in a response parsed by ElementTree
+    :param root: The response's root element
+    :param ignore: The reply codes that do not report an error
+    :return: The (reply_code, reply_text) of an error reply code, or None
+    """
+    for root_name, *names in REPLY_CODE_PATHS:
+        if root.tag != root_name:
+            continue
+        for element in root.findall("/".join(names)) if names else [root]:
+            error = reply_code_error(element.attrib, ignore)
+            if error:
+                return error
+    return None
 
 
 class Base:
@@ -74,17 +116,10 @@ class Base:
         :param xml_response_dict: The response, as parsed by xmltodict
         :return: None
         """
-        if "RETS-STATUS" in xml_response_dict:
-            statuses = [xml_response_dict["RETS-STATUS"]]
-        elif "RETS" in xml_response_dict:
-            rets = xml_response_dict["RETS"]
-            statuses = [rets, rets.get("RETS-STATUS")] if isinstance(rets, dict) else []
-        else:  # pragma: no cover
+        if not any(path[0] in xml_response_dict for path in REPLY_CODE_PATHS):  # pragma: no cover
             raise RETSException("The <RETS> tag was expected in the response XML but it was not found.")
 
-        for status in statuses:
-            # xmltodict gives an element with no attributes as None or its text, so it has no reply code.
-            error = reply_code_error(self.get_attributes(status)) if isinstance(status, dict) else None
-            if error:
-                reply_code, reply_text = error
-                raise RETSException(reply_text, reply_code)
+        error = reply_code_error_in_document(xml_response_dict)
+        if error:
+            reply_code, reply_text = error
+            raise RETSException(reply_text, reply_code)
