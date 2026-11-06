@@ -192,6 +192,29 @@ def standard_lookup(resource, lookup, *values):
     return f'<METADATA-LOOKUP_TYPE Resource="{resource}" Lookup="{lookup}">{entries}</METADATA-LOOKUP_TYPE>'
 
 
+class EmptyRetsElementTester(unittest.TestCase):
+    """A metadata response whose RETS element holds no metadata element"""
+
+    BODIES = ("<RETS></RETS>", "<RETS/>", "<RETS>text</RETS>", "<RETS>\n</RETS>", '<RETS ReplyCode="0"/>')
+
+    def test_compact(self):
+        # As for a RETS element that only has a reply code: no entries.
+        for body in self.BODIES:
+            with self.subTest(body=body):
+                parser = CompactMetadata()
+                self.assertEqual(parser.parse(FakeResponse(body), "METADATA-CLASS"), [])
+                self.assertEqual(parser.parse(FakeResponse(body), "METADATA-CLASS", meta_id="*"), {})
+
+    def test_standard_xml(self):
+        bodies = (*self.BODIES, '<RETS ReplyCode="0"><METADATA>text</METADATA></RETS>')
+        for body in bodies:
+            with self.subTest(body=body):
+                parser = StandardXMLMetadata()
+                with self.assertRaisesRegex(ParseError, "no METADATA-CLASS element"):
+                    parser.parse(FakeResponse(body), "METADATA-CLASS")
+                self.assertEqual(parser.parse(FakeResponse(body), "METADATA-CLASS", meta_id="*"), {})
+
+
 class CompactWildcardMetadataTester(unittest.TestCase):
     """Keying a COMPACT-DECODED wildcard response by the names the wildcard stands for, as STANDARD-XML does"""
 

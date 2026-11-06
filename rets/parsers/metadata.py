@@ -23,6 +23,18 @@ class MetadataParser(Base):
         "METADATA-TABLE": ("Resource", "Class"),
     }
 
+    @staticmethod
+    def _child(element, name):
+        """
+        Get a child element that can only hold other elements, such as RETS or METADATA
+        :param element: The parent element, as parsed by xmltodict
+        :param name: The child element's name
+        :return: dict, empty when the child is missing, or has no attributes or children, which xmltodict gives
+        as None or as the child's text
+        """
+        child = element.get(name) if isinstance(element, dict) else None
+        return child if isinstance(child, dict) else {}
+
     def _wildcard_attributes(self, metadata_type, meta_id, wildcard):
         """
         Get the attributes a wildcard result is keyed by, outermost first
@@ -87,7 +99,7 @@ class CompactMetadata(MetadataParser):
         # it would drop empty fields from either end and shift every value after them.
         xml = xmltodict.parse(response.text, strip_whitespace=False)
         self.analyze_reply_code(xml_response_dict=xml)
-        base = xml.get("RETS", {}).get(metadata_type, {})
+        base = self._child(xml, "RETS").get(metadata_type, {})
 
         # xmltodict returns a list when the metadata element repeats, as it does for a wildcard lookup. An element
         # with no attributes and no children holds no entries: xmltodict gives a bare one as None, and, since
@@ -205,8 +217,7 @@ class StandardXMLMetadata(MetadataParser):
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
-        # xmltodict turns an element with no attributes or children into None.
-        metadata = (xml.get("RETS") or {}).get("METADATA") or {}
+        metadata = self._child(self._child(xml, "RETS"), "METADATA")
 
         if metadata_type == "METADATA-SYSTEM":
             return [self._parse_system(metadata.get(metadata_type) or {})]

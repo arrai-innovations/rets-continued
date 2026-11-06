@@ -54,6 +54,7 @@
 * Read RETS reply codes the same way in every response: from the `RETS` element, from a `RETS-STATUS` element inside it, and from a `RETS-STATUS` element sent as the whole response. Login, metadata, GetObject and search responses ignored a `RETS-STATUS` inside `RETS`, so an error reported there went unnoticed, and a `RETS-STATUS` response reporting success failed with a `KeyError`. A search response without any reply code no longer raises a `RETSException` without a code.
 * Read an XML error part in a multipart GetObject response up to the end of its root element, rather than up to the first `/>`. A reply code in a `RETS-STATUS` inside `RETS`, such as an object not found, was cut off mid-document and failed with an `ExpatError` instead of being skipped or raised. Characters some servers send after the XML are still dropped.
 * Read the headers of each part in a multipart GetObject response in any case, as header names are case-insensitive. A part sending `content-id` or `content-type` came back with its `content_id`, `object_id`, `content_type` and `location` empty, and an XML error part with lower-case headers was returned as an object instead of having its reply code checked.
+* Read a metadata response whose `RETS` element has no attributes or children, such as `<RETS/>` or `<RETS>text</RETS>`, as holding no metadata, rather than failing with an `AttributeError`. COMPACT-DECODED returns no entries, as it already did for a `RETS` element with only a reply code, and STANDARD-XML raises `ParseError` saying the metadata element is missing.
 
 ## 2.0.1
 
