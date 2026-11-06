@@ -1,3 +1,4 @@
+import hashlib
 import io
 import unittest
 
@@ -512,6 +513,33 @@ class MultipartObjectTester(unittest.TestCase):
         )
 
         self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"first"), ("2", b"second")])
+
+    def test_missing_close_delimiter(self):
+        objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\nno close delimiter")
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"no close delimiter")])
+
+    def test_blank_parts_are_skipped(self):
+        objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\nA\r\n--BOUND\r\n\r\n--BOUND\r\n \t\r\n\r\n--BOUND--\r\n")
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("1", b"A")])
+
+    def test_object_not_found_part_is_skipped(self):
+        # Some servers send characters after the XML part's closing tag.
+        objs = self.parse(
+            b"--BOUND\r\nContent-Type: text/xml\r\n\r\n"
+            b'<RETS ReplyCode="20403" ReplyText="No Object Found"/>trailing\r\n'
+            b"--BOUND\r\nObject-ID: 2\r\n\r\nfound\r\n--BOUND--\r\n"
+        )
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("2", b"found")])
+
+    def test_content_is_bytes_with_its_md5(self):
+        content = bytes(range(256))
+        objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\n" + content + b"\r\n--BOUND--\r\n")
+
+        self.assertEqual(objs[0]["content"], content)
+        self.assertEqual(objs[0]["content_md5"], hashlib.md5(content).hexdigest())  # noqa: S324
 
     def test_xml_part_without_a_body(self):
         with self.assertRaises(ParseError):

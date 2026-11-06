@@ -9,7 +9,9 @@ from rets.parsers.base import Base
 
 
 LINE_BREAK = re.compile(r"\r?\n")
-HEADER_END = re.compile(r"\r?\n\r?\n")
+HEADER_END = re.compile(rb"\r?\n\r?\n")
+# A byte that is not whitespace once decoded as latin-1. A part holding none of them is empty.
+NOT_WHITESPACE = re.compile(rb"[^\t\n\x0b\x0c\r\x1c-\x1f \x85\xa0]")
 # RETS requires each part of a multipart GetObject response to carry these, so text ahead of the first
 # delimiter with none of them is a preamble rather than a part.
 PART_HEADERS = frozenset(("content-id", "object-id", "content-type"))
@@ -43,28 +45,35 @@ class MultipleObjectParser(ObjectParser):
     """Parses multiple object responses such as multiple images in a multi-part response"""
 
     @staticmethod
-    def _split_part(part):
+    def _split_part(content, start, end):
         """
         Split a part of a multipart response into its headers and body
-        :param part: The part, between its delimiters
-        :return: tuple of the headers as a dict, and the body, or None if the part has none
+        :param content: The whole response body
+        :param start: Where the part starts in content
+        :param end: Where the part ends in content
+        :return: tuple of the headers as a dict, and the body as bytes, or None if the part has none
         """
-        # The headers end at the first blank line, whichever line endings the server uses.
-        if HEADER_END.search(part):
-            header, body = HEADER_END.split(part, maxsplit=1)
+        # The headers end at the first blank line, whichever line endings the server uses. Only the body is
+        # copied out of the response, once, rather than the whole part at each step.
+        header_end = HEADER_END.search(content, start, end)
+        if header_end:
+            header = content[start : header_end.start()]
+            body = content[header_end.end() : end]
         else:
-            header = part
+            header = content[start:end]
             body = None
-        headers = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in LINE_BREAK.split(header) if ":" in h)}
+        lines = LINE_BREAK.split(header.decode("latin-1"))
+        headers = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in lines if ":" in h)}
         return headers, body
 
     @classmethod
     def _get_multiparts(cls, response):
         """
-        From this
-        'multipart/parallel; boundary="874e43d27ec6d83f30f37841bdaf90c7"; charset=utf-8'
-        get this
+        Split a multipart response into its parts, finding the delimiter from the boundary in the Content-Type:
+        'multipart/parallel; boundary="874e43d27ec6d83f30f37841bdaf90c7"; charset=utf-8' is delimited by
         --874e43d27ec6d83f30f37841bdaf90c7
+        :param response: The response from the RETS server
+        :return: generator of tuples of each part's headers as a dict, and its body as bytes or None
         """
         boundary = None
         for part in response.headers.get("Content-Type", "").split(";"):
@@ -75,57 +84,58 @@ class MultipleObjectParser(ObjectParser):
         if not boundary:
             raise ParseError("Was not able to find the boundary between objects in a multipart response")
 
-        if response.content is None:
+        content = response.content
+        if content is None:
             return
 
-        # Decode for string operations. latin-1 maps each byte to one character, so encoding a part
-        # back gives exactly the bytes the server sent.
-        response_string = response.content.decode("latin-1")
-
-        for index, part in enumerate(response_string.split(boundary)):
-            if part.startswith("--"):
-                break  # The close delimiter. Anything after it is epilogue.
+        # Work on the response's bytes by position, so that a large object is not copied at every step.
+        delimiter = boundary.encode("latin-1")
+        start = 0
+        first = True
+        while True:
+            found = content.find(delimiter, start)
+            end = len(content) if found == -1 else found
 
             # The delimiter line ends in a line break, and the line break ahead of the next delimiter belongs to
             # that delimiter (RFC 2046). Remove exactly one of each, since a binary body can itself end in CR or
             # LF bytes. Some servers send bare LFs rather than CRLFs.
-            part = part.removeprefix("\r\n") if part.startswith("\r\n") else part.removeprefix("\n")
-            part = part.removesuffix("\r\n") if part.endswith("\r\n") else part.removesuffix("\n")
+            start += 2 if content.startswith(b"\r\n", start, end) else int(content.startswith(b"\n", start, end))
+            end -= 2 if content.endswith(b"\r\n", start, end) else int(content.endswith(b"\n", start, end))
 
-            if not part.strip():
-                continue
-            if index == 0:
+            if NOT_WHITESPACE.search(content, start, end):
+                headers, body = cls._split_part(content, start, end)
                 # Text ahead of the first delimiter is a preamble, which MIME allows and readers ignore. A
                 # server that leaves out the first delimiter still has its first part read, since that has
                 # the headers a part needs.
-                headers, _body = cls._split_part(part)
-                if not PART_HEADERS.intersection(name.lower() for name in headers):
-                    continue
-            yield part
+                if not first or PART_HEADERS.intersection(name.lower() for name in headers):
+                    yield headers, body
+
+            if found == -1:
+                return
+            start = found + len(delimiter)
+            if content.startswith(b"--", start):
+                return  # The close delimiter. Anything after it is epilogue.
+            first = False
 
     def parse_image_response(self, response):
         """
-        Parse multiple objects from the RETS feed. A lot of string methods are used to handle the response before
-        encoding it back into bytes for the object.
+        Parse multiple objects from the RETS feed
         :param response: The response from the feed
-        :return: list of SingleObjectParser
+        :return: generator of objects
         """
         self.analyze_xml_response(response)
 
-        multi_parts = self._get_multiparts(response)
-
         # go through each part of the multipart message
-        for part in multi_parts:
-            part_header_dict, body = self._split_part(part)
-
+        for part_header_dict, body in self._get_multiparts(response):
             # Some multipart requests respond with a text/XML part stating an error
             if "xml" in part_header_dict.get("Content-Type", ""):
                 # Got an XML response, likely an error code.
                 # Some rets servers give characters after the closing brace.
                 if not body:
                     raise ParseError("Got an XML part in a multipart response, but it has no body")
-                body = body[: body.index("/>") + 2] if "/>" in body else body
-                xml = xmltodict.parse(body)
+                body = body[: body.index(b"/>") + 2] if b"/>" in body else body
+                # Decoded as latin-1, as before, so a reply text in another encoding still parses.
+                xml = xmltodict.parse(body.decode("latin-1"))
                 try:
                     self.analyze_reply_code(xml_response_dict=xml)
                 except RETSException as e:
@@ -137,7 +147,7 @@ class MultipleObjectParser(ObjectParser):
             if body:
                 obj = self._response_object_from_header(
                     obj_head_dict=part_header_dict,
-                    content=body.encode("latin-1"),
+                    content=body,
                 )
             else:
                 obj = self._response_object_from_header(obj_head_dict=part_header_dict)
