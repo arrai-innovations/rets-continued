@@ -6,7 +6,7 @@
 * Preserve every lookup's values in wildcard STANDARD-XML metadata requests, rather than reducing the result to a list of lookup names.
 * Work out each auto-offset from the rows the current search has returned, rather than from the search parser's running total. A `search_parser` given to the Session is shared by every search, so its total took in earlier searches' rows, and a later search that followed a truncated response skipped that many records.
 * Read COMPACT METADATA-SYSTEM fields independently of each other, accept the mixed-case `<System>` element, and read comments from the sibling `COMMENTS` element.
-* Recognize "X-" prefixed vendor capabilities in the login response.
+* Recognize "X-" prefixed vendor capabilities in the login response: an "X-" line whose value is a URL or an absolute path, such as `X-Selector=/rets/selector`. Other "X-" lines, such as `X-SessionTimeout=30`, stay among the login details.
 * Tolerate responses missing a Content-Type header, empty search rows, and empty delimiters.
 * Validate search arguments when `search()` is called, rather than when its results are first iterated.
 * Raise `HTTPException` with the actual status code for refused requests, instead of reporting every 400 as a 401 `NotLoggedIn`.

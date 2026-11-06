@@ -556,6 +556,35 @@ class LoginParserTester(unittest.TestCase):
             {"Broker": "BROKER1", "TimeoutSeconds": "1800", "MaxRows": "X-notacapability"},
         )
 
+    def test_extension_details_are_not_treated_as_capabilities(self):
+        parser = self.parse(
+            "\r\n".join(
+                [
+                    "X-Selector=/rets/selector",
+                    "X-Secure=https://server.rets.com/rets/Secure.ashx",
+                    "X-SessionTimeout=30",
+                    "X-Info=Contact support for help",
+                    "X-Relative=rets/notapath",
+                    "X-Scheme=mailto:support@example.com",
+                ]
+            )
+        )
+
+        # Vendors use X- names for details too; only a URL or an absolute path is a transaction.
+        self.assertEqual(
+            parser.capabilities,
+            {"X-Selector": "/rets/selector", "X-Secure": "https://server.rets.com/rets/Secure.ashx"},
+        )
+        self.assertEqual(
+            parser.details,
+            {
+                "X-SessionTimeout": "30",
+                "X-Info": "Contact support for help",
+                "X-Relative": "rets/notapath",
+                "X-Scheme": "mailto:support@example.com",
+            },
+        )
+
     def test_response_without_content_type(self):
         parser = OneXLogin()
         parser.parse(FakeResponse("Login=http://server.rets.com/rets/Login.ashx", headers={}))
