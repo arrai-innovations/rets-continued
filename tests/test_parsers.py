@@ -154,9 +154,11 @@ class CompactDataMetadataTester(unittest.TestCase):
 class StandardXMLWildcardMetadataTester(unittest.TestCase):
     """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
 
-    def parse(self, metadata_type, elements, wildcard=False):
+    def parse(self, metadata_type, elements, wildcard=False, meta_id=None):
         response = FakeResponse(f'<RETS ReplyCode="0"><METADATA>{elements}</METADATA></RETS>')
-        return StandardXMLMetadata().parse(response=response, metadata_type=metadata_type, wildcard=wildcard)
+        return StandardXMLMetadata().parse(
+            response=response, metadata_type=metadata_type, meta_id=meta_id, wildcard=wildcard
+        )
 
     def test_classes_keyed_by_resource(self):
         self.assertEqual(
@@ -222,6 +224,103 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
 
         self.assertEqual(self.parse("METADATA-CLASS", element, wildcard=True), {"Property": [{"ClassName": "RES"}]})
         self.assertEqual(self.parse("METADATA-CLASS", element), [{"ClassName": "RES"}])
+
+    STATUS_LOOKUPS = (
+        '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><LookupType><Value>A</Value></LookupType>'
+        "</METADATA-LOOKUP_TYPE>"
+        '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Area"><LookupType><Value>N</Value></LookupType>'
+        "</METADATA-LOOKUP_TYPE>"
+        '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><LookupType><Value>B</Value></LookupType>'
+        "</METADATA-LOOKUP_TYPE>"
+    )
+
+    def test_wildcard_resource_keyed_by_resource(self):
+        # Two resources each have a Status lookup, which keying by lookup name would collide on.
+        elements = (
+            '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><LookupType><Value>A</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+            '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><LookupType><Value>B</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+        )
+
+        self.assertEqual(
+            self.parse("METADATA-LOOKUP_TYPE", elements, meta_id="*:Status"),
+            {"Property": [{"Value": "A"}], "Agent": [{"Value": "B"}]},
+        )
+
+    def test_wildcard_name_keyed_by_name(self):
+        elements = (
+            '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><LookupType><Value>A</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+            '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Area"><LookupType><Value>N</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+        )
+
+        self.assertEqual(
+            self.parse("METADATA-LOOKUP_TYPE", elements, meta_id="Property:*"),
+            {"Status": [{"Value": "A"}], "Area": [{"Value": "N"}]},
+        )
+
+    def test_wildcard_resource_and_name_nested(self):
+        self.assertEqual(
+            self.parse("METADATA-LOOKUP_TYPE", self.STATUS_LOOKUPS, meta_id="*:*"),
+            {
+                "Property": {"Status": [{"Value": "A"}], "Area": [{"Value": "N"}]},
+                "Agent": {"Status": [{"Value": "B"}]},
+            },
+        )
+
+    def test_wildcard_resource_for_tables(self):
+        elements = (
+            '<METADATA-TABLE Resource="Property" Class="RES"><Field><SystemName>A</SystemName></Field>'
+            "</METADATA-TABLE>"
+            '<METADATA-TABLE Resource="Agent" Class="RES"><Field><SystemName>B</SystemName></Field>'
+            "</METADATA-TABLE>"
+        )
+
+        self.assertEqual(
+            self.parse("METADATA-TABLE", elements, meta_id="*:RES"),
+            {"Property": [{"SystemName": "A"}], "Agent": [{"SystemName": "B"}]},
+        )
+
+    def test_wildcard_resource_with_a_single_part_id(self):
+        element = '<METADATA-CLASS Resource="Property"><Class><ClassName>RES</ClassName></Class></METADATA-CLASS>'
+
+        self.assertEqual(self.parse("METADATA-CLASS", element, meta_id="*"), {"Property": [{"ClassName": "RES"}]})
+
+    def test_id_without_a_wildcard(self):
+        element = (
+            '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><LookupType><Value>A</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+        )
+
+        self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", element, meta_id="Property:Status"), [{"Value": "A"}])
+
+    def test_meta_id_takes_precedence_over_wildcard(self):
+        self.assertEqual(
+            list(self.parse("METADATA-LOOKUP_TYPE", self.STATUS_LOOKUPS, wildcard=True, meta_id="*:*")),
+            ["Property", "Agent"],
+        )
+
+    def test_nested_wildcard_with_a_repeated_element(self):
+        elements = self.STATUS_LOOKUPS + (
+            '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><LookupType><Value>C</Value></LookupType>'
+            "</METADATA-LOOKUP_TYPE>"
+        )
+
+        with self.assertRaisesRegex(ParseError, "for Resource Agent, Lookup Status"):
+            self.parse("METADATA-LOOKUP_TYPE", elements, meta_id="*:*")
+
+    def test_nested_wildcard_with_a_missing_resource(self):
+        elements = (
+            '<METADATA-LOOKUP_TYPE Lookup="Status"><LookupType><Value>A</Value></LookupType></METADATA-LOOKUP_TYPE>'
+        )
+
+        with self.assertRaisesRegex(ParseError, "missing its Resource attribute"):
+            self.parse("METADATA-LOOKUP_TYPE", elements, meta_id="*:*")
+
+    def test_nested_wildcard_matching_nothing(self):
+        self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", "", meta_id="*:*"), {})
 
     def test_wildcard_matching_nothing(self):
         # Whether the server leaves METADATA empty or sends it as a bare tag.

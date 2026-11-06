@@ -1592,7 +1592,9 @@ class Session15Tester(unittest.TestCase):
     def get_metadata(self, fixture, method, **kwargs):
         with open(fixture) as f:
             contents = "".join(f.readlines())
+        return self.get_metadata_from(contents, method, **kwargs)
 
+    def get_metadata_from(self, contents, method, **kwargs):
         with responses.RequestsMock() as resps:
             resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=contents, status=200)
             result = getattr(self.session, method)(**kwargs)
@@ -1618,6 +1620,47 @@ class Session15Tester(unittest.TestCase):
 
         self.assertEqual(list(classes), ["Property"])
         self.assertEqual(classes["Property"][0]["ClassName"], "1")
+
+    LOOKUPS_ACROSS_RESOURCES = (
+        '<RETS ReplyCode="0"><METADATA>'
+        '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><LookupType><Value>A</Value></LookupType>'
+        "</METADATA-LOOKUP_TYPE>"
+        '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><LookupType><Value>B</Value></LookupType>'
+        "</METADATA-LOOKUP_TYPE>"
+        "</METADATA></RETS>"
+    )
+
+    def test_wildcard_lookup_resource(self):
+        lookups, meta_id = self.get_metadata_from(
+            self.LOOKUPS_ACROSS_RESOURCES, "get_lookup_values", resource="*", lookup_name="Status"
+        )
+
+        self.assertEqual(meta_id, "*:Status")
+        self.assertEqual(lookups, {"Property": [{"Value": "A"}], "Agent": [{"Value": "B"}]})
+
+    def test_wildcard_lookup_resource_and_name(self):
+        lookups, meta_id = self.get_metadata_from(
+            self.LOOKUPS_ACROSS_RESOURCES, "get_lookup_values", resource="*", lookup_name="*"
+        )
+
+        self.assertEqual(meta_id, "*:*")
+        self.assertEqual(lookups, {"Property": {"Status": [{"Value": "A"}]}, "Agent": {"Status": [{"Value": "B"}]}})
+
+    def test_wildcard_table_resource(self):
+        tables, meta_id = self.get_metadata_from(
+            '<RETS ReplyCode="0"><METADATA>'
+            '<METADATA-TABLE Resource="Property" Class="RES"><Field><SystemName>A</SystemName></Field>'
+            "</METADATA-TABLE>"
+            '<METADATA-TABLE Resource="Agent" Class="RES"><Field><SystemName>B</SystemName></Field>'
+            "</METADATA-TABLE>"
+            "</METADATA></RETS>",
+            "get_table_metadata",
+            resource="*",
+            resource_class="RES",
+        )
+
+        self.assertEqual(meta_id, "*:RES")
+        self.assertEqual(tables, {"Property": [{"SystemName": "A"}], "Agent": [{"SystemName": "B"}]})
 
     def test_named_lookup_is_a_list(self):
         lookups, _meta_id = self.get_metadata(

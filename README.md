@@ -200,10 +200,19 @@ Returns the METADATA-LOOKUP_TYPE information for a field of a resource. The resu
 
 ### Wildcards
 
-Some RETS servers accept a wildcard `*` in place of a name, returning the metadata for every resource, class or lookup at once: for example `get_class_metadata('*')`, `get_table_metadata('Property', '*')` or `get_lookup_values('Property', '*')`. The shape of the result depends on the metadata format:
+Some RETS servers accept a wildcard `*` in place of a name, returning the metadata for every resource, class or lookup at once: for example `get_class_metadata('*')`, `get_table_metadata('Property', '*')` or `get_lookup_values('*', 'Status')`. The shape of the result depends on the metadata format:
 
-- **COMPACT-DECODED**, the default, returns one list holding the entries for every name. Each entry carries the name it belongs to under the same key the server uses for it: `Resource` for classes and objects, `Class` for tables, and `Lookup` for lookup values.
-- **STANDARD-XML** returns a dict of lists, keyed by that name. A wildcard always returns a dict, even when it matches a single name or none, and a name with no entries maps to an empty list.
+- **COMPACT-DECODED**, the default, returns one list holding the entries for every name. Each entry carries the names it belongs to under the same keys the server uses for them: `Resource` for classes and objects, `Resource` and `Class` for tables, and `Resource` and `Lookup` for lookup values.
+- **STANDARD-XML** returns a dict of lists, keyed by the names that the `*` stands for. A wildcard always returns a dict, even when it matches a single name or none, and a name with no entries maps to an empty list.
+
+| Call | STANDARD-XML result |
+| --- | --- |
+| `get_class_metadata('*')` | `{'Property': [...], 'Agent': [...]}`, keyed by resource |
+| `get_lookup_values('Property', '*')` | `{'Status': [...], 'Area': [...]}`, keyed by lookup |
+| `get_lookup_values('*', 'Status')` | `{'Property': [...], 'Agent': [...]}`, keyed by resource |
+| `get_lookup_values('*', '*')` | `{'Property': {'Status': [...], 'Area': [...]}, 'Agent': {...}}`, keyed by resource, then by lookup |
+
+Table metadata follows the same pattern, with classes in place of lookups.
 
 The session switches to STANDARD-XML when the server rejects COMPACT-DECODED, so check `rets_client.metadata_format` if your code has to handle either shape.
 

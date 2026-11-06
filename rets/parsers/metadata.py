@@ -92,14 +92,23 @@ class CompactMetadata(Base):
 class StandardXMLMetadata(Base):
     """Parses STANDARD-XML RETS responses"""
 
-    # For each metadata type: the child element holding its entries, and the attribute naming each
-    # metadata element when a wildcard request returns several of them.
+    # For each metadata type: the child element holding its entries, matched case-insensitively.
     element_keys = {  # noqa: RUF012
-        "METADATA-CLASS": ("class", "Resource"),
-        "METADATA-RESOURCE": ("resource", None),
-        "METADATA-LOOKUP_TYPE": ("lookuptype", "Lookup"),
-        "METADATA-OBJECT": ("object", "Resource"),
-        "METADATA-TABLE": ("field", "Class"),
+        "METADATA-CLASS": "class",
+        "METADATA-RESOURCE": "resource",
+        "METADATA-LOOKUP_TYPE": "lookuptype",
+        "METADATA-OBJECT": "object",
+        "METADATA-TABLE": "field",
+    }
+
+    # For each metadata type: the attribute each part of its ID names, in order. A wildcard result is keyed by
+    # the attributes whose part of the ID is a "*".
+    id_attributes = {  # noqa: RUF012
+        "METADATA-CLASS": ("Resource",),
+        "METADATA-RESOURCE": (),
+        "METADATA-LOOKUP_TYPE": ("Resource", "Lookup"),
+        "METADATA-OBJECT": ("Resource",),
+        "METADATA-TABLE": ("Resource", "Class"),
     }
 
     @staticmethod
@@ -119,15 +128,19 @@ class StandardXMLMetadata(Base):
             raise ParseError(msg)
         return key_cap
 
-    def parse(self, response, metadata_type, wildcard=False):
+    def parse(self, response, metadata_type, meta_id=None, wildcard=False):
         """
         Parses RETS metadata using the STANDARD-XML format
         :param response: requests Response object
         :param metadata_type: string
-        :param wildcard: Whether the request used a wildcard ID, which always gets a dict back, even when it
-        matched a single name
-        :return parsed: list, or a dict of lists keyed by name for a wildcard request or when the response holds
-        several metadata elements
+        :param meta_id: The ID the metadata was requested with, such as "Property:*". A "*" in place of a part
+        gets a dict back, even when it matched a single name, keyed by the attribute that part names: "*:Status"
+        is keyed by resource, and "Property:*" by lookup. A "*" in both parts gets a dict of dicts, keyed by
+        resource and then by lookup or class.
+        :param wildcard: For a caller without the ID: treat it as a wildcard in the last part, such as
+        "Property:*". Ignored when meta_id is given.
+        :return parsed: list, or a dict of lists for a wildcard request or when the response holds several
+        metadata elements
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
@@ -140,21 +153,41 @@ class StandardXMLMetadata(Base):
         if metadata_type not in self.element_keys:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
+
+        key_by = self._wildcard_attributes(metadata_type, meta_id, wildcard)
         if metadata_type not in metadata:
-            if wildcard:
+            if key_by:
                 # The wildcard matched nothing.
                 return {}
             msg = f"The response holds no {metadata_type!s} element"
             raise ParseError(msg)
 
         base = metadata[metadata_type]
-        if isinstance(base, list) or wildcard:
-            # Several metadata elements may come back, so return a dict of lists keyed by the name each
-            # element covers. A wildcard request gets one even if it matched a single name, so that its
-            # result has the same type however many names the server has.
-            return self._parse_named_elements(base if isinstance(base, list) else [base], metadata_type)
+        if isinstance(base, list) and not key_by:
+            # Several elements came back for an ID without a wildcard, so tell them apart by the name each covers.
+            key_by = self.id_attributes[metadata_type][-1:]
+            if not key_by:
+                msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
+                raise ParseError(msg)
+        if key_by:
+            # A wildcard request gets a dict even if it matched a single name, so that its result has the same
+            # type however many names the server has.
+            return self._parse_named_elements(base if isinstance(base, list) else [base], metadata_type, key_by)
 
         return self._entries(base, metadata_type)
+
+    def _wildcard_attributes(self, metadata_type, meta_id, wildcard):
+        """
+        Get the attributes a wildcard result is keyed by, outermost first
+        :param metadata_type: string
+        :param meta_id: The ID the metadata was requested with, or None
+        :param wildcard: Whether to treat the last part of the ID as a wildcard, when meta_id is None
+        :return: tuple of attribute names, empty for a request without a wildcard
+        """
+        attributes = self.id_attributes[metadata_type]
+        if meta_id is None:
+            return attributes[-1:] if wildcard else ()
+        return tuple(attribute for part, attribute in zip(str(meta_id).split(":"), attributes) if part == "*")
 
     @staticmethod
     def _parse_system(base):
@@ -192,36 +225,37 @@ class StandardXMLMetadata(Base):
             # The element has attributes but no child elements, such as a lookup with no values. An
             # element whose children go by an unexpected name still fails below, rather than look empty.
             return []
-        key, _name_attribute = self.element_keys[metadata_type]
-        key_cap = self._identify_key(element, key)
+        key_cap = self._identify_key(element, self.element_keys[metadata_type])
         entries = element[key_cap]
         return entries if isinstance(entries, list) else [entries]
 
-    def _parse_named_elements(self, elements, metadata_type):
+    def _parse_named_elements(self, elements, metadata_type, key_by):
         """
-        Parses metadata elements into a dict of lists, keyed by the name each element covers
+        Parses metadata elements into a dict of lists, keyed by the names each element covers. With more than one
+        attribute to key by, the dict is nested, outermost attribute first.
         :param elements: The metadata elements, as parsed by xmltodict
         :param metadata_type: string
+        :param key_by: The attributes naming each element, outermost first
         :return: dict
         """
-        _key, name_attribute = self.element_keys[metadata_type]
-        if not name_attribute:
-            msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
-            raise ParseError(msg)
-
         res = {}
         for i in elements:
             entries = self._entries(i, metadata_type)
-            name = i.get(f"@{name_attribute}") if isinstance(i, dict) else None
-            if name is None:
+            names = [i.get(f"@{attribute}") if isinstance(i, dict) else None for attribute in key_by]
+            if None in names:
                 if not entries:
                     # Names nothing and holds nothing, so there is nothing to lose by passing over it.
                     continue
-                msg = f"A {metadata_type!s} element is missing its {name_attribute!s} attribute"
+                msg = f"A {metadata_type!s} element is missing its {key_by[names.index(None)]!s} attribute"
                 raise ParseError(msg)
-            if name in res:
-                # Wildcards spanning several resources can repeat a name; refuse rather than lose entries.
-                msg = f"Got more than one {metadata_type!s} element for {name_attribute!s} {name!s}"
+
+            level = res
+            for name in names[:-1]:
+                level = level.setdefault(name, {})
+            if names[-1] in level:
+                # Two elements for the same names; refuse rather than lose either one's entries.
+                described = ", ".join(f"{attribute!s} {name!s}" for attribute, name in zip(key_by, names))
+                msg = f"Got more than one {metadata_type!s} element for {described}"
                 raise ParseError(msg)
-            res[name] = entries
+            level[names[-1]] = entries
         return res
