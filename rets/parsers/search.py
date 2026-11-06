@@ -6,6 +6,7 @@ from defusedxml.ElementTree import iterparse
 from rets.exceptions import MaxrowException
 from rets.exceptions import RETSException
 from rets.parsers.base import Base
+from rets.parsers.base import reply_code_error
 
 
 logger = logging.getLogger("rets")
@@ -59,9 +60,9 @@ class OneXSearchCursor(Base):
         for event, elem in events:
             if event == "start":
                 depth += 1
-                if elem.tag == "RETS":
+                if depth == 1:
                     root = elem
-                    self._check_reply_code(elem)
+                self._check_reply_code(elem, depth)
                 continue
             depth -= 1
 
@@ -97,16 +98,19 @@ class OneXSearchCursor(Base):
                 root.remove(elem)
 
     @staticmethod
-    def _check_reply_code(elem):
+    def _check_reply_code(elem, depth):
         """
-        Raise for a reply code that reports an error, as soon as the RETS element opens
-        :param elem: The RETS element
+        Raise for a reply code that reports an error, as soon as the element holding it opens
+        :param elem: An element that has just opened
+        :param depth: How deep the element is in the response, 1 for the root
         :return: None
         """
-        reply_code = elem.get("ReplyCode")
-        reply_text = elem.get("ReplyText", "RETS did not supply a Reply Text.")
-
+        # The reply code is on the RETS element, or on a RETS-STATUS element inside it or in its place.
+        if elem.tag not in ("RETS", "RETS-STATUS") or depth > 2:
+            return
         # RETS Response 20201 - No Records Found. The search simply returns nothing.
-        if reply_code not in ("0", "20201"):
+        error = reply_code_error(elem.attrib, ignore=("0", "20201"))
+        if error:
             # Raised like every other reply code, so callers can tell errors apart by reply_code.
+            reply_code, reply_text = error
             raise RETSException(reply_text, reply_code)

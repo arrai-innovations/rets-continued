@@ -7,6 +7,26 @@ from rets.exceptions import RETSException
 
 logger = logging.getLogger("rets")
 
+NO_REPLY_TEXT = "RETS did not supply a Reply Text."
+
+
+def reply_code_error(attributes, ignore=("0",)):
+    """
+    Reads the reply code from the attributes of a RETS or RETS-STATUS element. Every reader of reply codes goes
+    through here, so they agree on what counts as an error.
+    :param attributes: The element's attributes, as a dict keyed by attribute name
+    :param ignore: The reply codes that do not report an error
+    :return: The (reply_code, reply_text) of an error reply code, or None
+    """
+    reply_code = attributes.get("ReplyCode")
+    if reply_code is None:
+        return None
+    reply_text = attributes.get("ReplyText", NO_REPLY_TEXT)
+    logger.debug("Received ReplyCode of %s from the RETS Server: %s", reply_code, reply_text)
+    if reply_code in ignore:
+        return None
+    return reply_code, reply_text
+
 
 class Base:
     """Base Parser Object"""
@@ -49,30 +69,22 @@ class Base:
 
     def analyze_reply_code(self, xml_response_dict):
         """
-        Checks the RETS Response Code and handles non-zero answers.
-        :param xml_response_dict:
+        Checks the RETS reply code, on the RETS element and on a RETS-STATUS element inside it, or on a RETS-STATUS
+        element sent as the whole response, and raises RETSException for an error
+        :param xml_response_dict: The response, as parsed by xmltodict
         :return: None
         """
         if "RETS-STATUS" in xml_response_dict:
-            attributes = self.get_attributes(xml_response_dict["RETS-STATUS"])
-            reply_code = attributes["ReplyCode"]
-            reply_text = attributes.get("ReplyText", "RETS did not supply a Reply Text.")
-
-            logger.debug("Received ReplyCode of %s from the RETS Server: %s", reply_code, reply_text)
-            if reply_code != "0":
-                raise RETSException(reply_text, reply_code)
-
-        elif "RETS" not in xml_response_dict:  # pragma: no cover
+            statuses = [xml_response_dict["RETS-STATUS"]]
+        elif "RETS" in xml_response_dict:
+            rets = xml_response_dict["RETS"]
+            statuses = [rets, rets.get("RETS-STATUS")] if isinstance(rets, dict) else []
+        else:  # pragma: no cover
             raise RETSException("The <RETS> tag was expected in the response XML but it was not found.")
 
-        attributes = self.get_attributes(input_dict=xml_response_dict["RETS"])
-        if "ReplyCode" not in attributes:  # pragma: no cover
-            # The RETS server did not return a response code.
-            return True
-
-        reply_code = attributes["ReplyCode"]
-        reply_text = attributes.get("ReplyText", "RETS did not supply a Reply Text.")
-
-        logger.debug("Received ReplyCode of %s from the RETS Server: %s", reply_code, reply_text)
-        if reply_code != "0":
-            raise RETSException(reply_text, reply_code)
+        for status in statuses:
+            # xmltodict gives an element with no attributes as None or its text, so it has no reply code.
+            error = reply_code_error(self.get_attributes(status)) if isinstance(status, dict) else None
+            if error:
+                reply_code, reply_text = error
+                raise RETSException(reply_text, reply_code)

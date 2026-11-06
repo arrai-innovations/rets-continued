@@ -941,6 +941,7 @@ class StatusCodeTester(unittest.TestCase):
         bodies = [
             '<RETS ReplyCode="20203" ReplyText="Miscellaneous search error."/>',
             '<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20203" ReplyText="Miscellaneous search error."/></RETS>',
+            '<RETS-STATUS ReplyCode="20203" ReplyText="Miscellaneous search error."/>',
         ]
         for body in bodies:
             with self.subTest(body=body), responses.RequestsMock() as resps:

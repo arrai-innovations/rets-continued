@@ -414,16 +414,19 @@ class LogMessageTester(unittest.TestCase):
         with self.assertLogs("rets", level="DEBUG") as logs:
             Base().analyze_reply_code(
                 {
-                    "RETS-STATUS": {"@ReplyCode": "0", "@ReplyText": "Status OK."},
-                    "RETS": {"@ReplyCode": "0", "@ReplyText": "Operation Success."},
+                    "RETS": {
+                        "@ReplyCode": "0",
+                        "@ReplyText": "Operation Success.",
+                        "RETS-STATUS": {"@ReplyCode": "0", "@ReplyText": "Status OK."},
+                    }
                 }
             )
 
         self.assertEqual(
             [r.getMessage() for r in logs.records],
             [
-                "Received ReplyCode of 0 from the RETS Server: Status OK.",
                 "Received ReplyCode of 0 from the RETS Server: Operation Success.",
+                "Received ReplyCode of 0 from the RETS Server: Status OK.",
             ],
         )
 
@@ -643,6 +646,55 @@ class XMLReplyTester(unittest.TestCase):
 
         objs = list(SingleObjectParser().parse_image_response(response))
         self.assertEqual(objs[0]["content"], self.ERROR.encode())
+
+
+class ReplyCodeLocationTester(unittest.TestCase):
+    """Every parser finds the reply code wherever a server puts it"""
+
+    NESTED = '<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20203" ReplyText="Miscellaneous error."/></RETS>'
+    ROOT = '<RETS-STATUS ReplyCode="20203" ReplyText="Miscellaneous error."/>'
+
+    def assert_reply_code_raised(self, parse):
+        for body in (self.NESTED, self.ROOT):
+            with self.subTest(body=body), self.assertRaises(RETSException) as caught:
+                parse(body)
+            self.assertEqual(
+                (caught.exception.reply_code, caught.exception.reply_text), ("20203", "Miscellaneous error.")
+            )
+
+    def test_login(self):
+        self.assert_reply_code_raised(
+            lambda body: OneXLogin().parse(FakeResponse(body, headers={"Content-Type": "text/xml"}))
+        )
+
+    def test_metadata(self):
+        for parser in (CompactMetadata(), StandardXMLMetadata()):
+            with self.subTest(parser=type(parser).__name__):
+                self.assert_reply_code_raised(
+                    lambda body, p=parser: list(p.parse(response=FakeResponse(body), metadata_type="METADATA-CLASS"))
+                )
+
+    def test_search(self):
+        self.assert_reply_code_raised(
+            lambda body: list(OneXSearchCursor().generator(response=ChunkedResponse([body.encode()])))
+        )
+
+    def test_success_status_document(self):
+        # A RETS-STATUS sent as the whole response used to fail with a KeyError looking for the RETS element.
+        Base().analyze_reply_code({"RETS-STATUS": {"@ReplyCode": "0", "@ReplyText": "Status OK."}})
+
+    def test_search_no_records_found_in_rets_status(self):
+        response = ChunkedResponse(
+            [b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20201" ReplyText="No Records Found."/></RETS>']
+        )
+
+        self.assertEqual(list(OneXSearchCursor().generator(response=response)), [])
+
+    def test_search_without_a_reply_code(self):
+        # No reply code reports no error, as for every other response, rather than a RETSException without a code.
+        response = ChunkedResponse([b"<RETS><COLUMNS>\tListingID\t</COLUMNS><DATA>\t1\t</DATA></RETS>"])
+
+        self.assertEqual(list(OneXSearchCursor().generator(response=response)), [{"ListingID": "1"}])
 
 
 class ResponseStreamTester(unittest.TestCase):
