@@ -204,7 +204,7 @@ def standard_lookup(resource, lookup, *values):
 
 
 class EmptyRetsElementTester(unittest.TestCase):
-    """A metadata response whose RETS element holds no metadata element"""
+    """A metadata response whose RETS element holds no metadata element has no entries, in either format"""
 
     BODIES = ("<RETS></RETS>", "<RETS/>", "<RETS>text</RETS>", "<RETS>\n</RETS>", '<RETS ReplyCode="0"/>')
 
@@ -221,9 +221,14 @@ class EmptyRetsElementTester(unittest.TestCase):
         for body in bodies:
             with self.subTest(body=body):
                 parser = StandardXMLMetadata()
-                with self.assertRaisesRegex(ParseError, "no METADATA-CLASS element"):
-                    parser.parse(FakeResponse(body), "METADATA-CLASS")
+                self.assertEqual(parser.parse(FakeResponse(body), "METADATA-CLASS"), [])
                 self.assertEqual(parser.parse(FakeResponse(body), "METADATA-CLASS", meta_id="*"), {})
+
+    def test_system_is_still_required(self):
+        # There is no system to return, so both formats raise rather than return nothing.
+        for parser in (CompactMetadata(), StandardXMLMetadata()):
+            with self.subTest(parser=type(parser).__name__), self.assertRaises(ParseError):
+                parser.parse(FakeResponse('<RETS ReplyCode="0"><METADATA/></RETS>'), "METADATA-SYSTEM")
 
 
 class CompactWildcardMetadataTester(unittest.TestCase):
@@ -560,8 +565,8 @@ class StandardXMLWildcardMetadataTester(unittest.TestCase):
                 self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", element), [])
 
     def test_missing_element(self):
-        with self.assertRaisesRegex(ParseError, "no METADATA-CLASS element"):
-            self.parse("METADATA-CLASS", "")
+        # No entries, as the COMPACT-DECODED format gives.
+        self.assertEqual(self.parse("METADATA-CLASS", ""), [])
 
     def test_entries_under_an_unexpected_name(self):
         # Entries the parser does not recognise must not be mistaken for an empty element.

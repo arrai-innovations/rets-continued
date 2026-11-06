@@ -214,7 +214,7 @@ class StandardXMLMetadata(MetadataParser):
         is keyed by resource, and "Property:*" by lookup. A "*" in both parts gets a dict of dicts, keyed by
         resource and then by lookup or class.
         :return parsed: list, or a dict of lists for a wildcard request or when the response holds several
-        metadata elements
+        metadata elements. A response without the requested metadata element has no entries.
         """
         xml = xmltodict.parse(response.text)
         self.analyze_reply_code(xml_response_dict=xml)
@@ -229,11 +229,8 @@ class StandardXMLMetadata(MetadataParser):
 
         key_by = self._wildcard_attributes(metadata_type, meta_id)
         if metadata_type not in metadata:
-            if key_by:
-                # The wildcard matched nothing.
-                return {}
-            msg = f"The response holds no {metadata_type!s} element"
-            raise ParseError(msg)
+            # Nothing matched the ID, which is no entries, as in the COMPACT-DECODED format.
+            return {} if key_by else []
 
         base = metadata[metadata_type]
         if isinstance(base, list) and not key_by:
