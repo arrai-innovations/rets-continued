@@ -746,6 +746,15 @@ class SessionTester(unittest.TestCase):
             },
         )
 
+    def test_system_metadata_without_a_system(self):
+        body = '<RETS ReplyCode="0"><METADATA-SYSTEM Version="1"><SYSTEM/></METADATA-SYSTEM></RETS>'
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=body, status=200)
+
+            # Not an IndexError from taking the system out of an empty list.
+            with self.assertRaises(ParseError):
+                self.session.get_system_metadata()
+
     def test_wildcard_resource_lookup_metadata(self):
         body = (
             '<RETS ReplyCode="0">'

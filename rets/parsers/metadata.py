@@ -111,7 +111,11 @@ class CompactMetadata(MetadataParser):
             # Grouped per element rather than per row, so a name with no rows still maps to an empty list.
             named_entries = ((self.get_attributes(element), list(self._parse_element(element))) for element in elements)
             return self._group_by_names(named_entries, metadata_type, key_by)
-        return [row for element in elements for row in self._parse_element(element)]
+        rows = [row for element in elements for row in self._parse_element(element)]
+        if metadata_type == "METADATA-SYSTEM" and not rows:
+            # As the STANDARD-XML parser does, rather than leave the caller an empty list to take the system from.
+            raise ParseError("Could not get the System key from a METADATA-SYSTEM request.")
+        return rows
 
     def _parse_element(self, base):
         """
@@ -122,7 +126,9 @@ class CompactMetadata(MetadataParser):
         attributes = self.get_attributes(base)
 
         system = base.get("SYSTEM", base.get("System"))
-        if system:
+        if isinstance(system, dict):
+            # A SYSTEM element with no attributes or children, which xmltodict gives as None or its whitespace,
+            # names no system.
             yield self._parse_system(base, system)
 
         elif "DATA" in base:
@@ -160,7 +166,7 @@ class CompactMetadata(MetadataParser):
 
         # The comments belong in a COMMENTS element alongside SYSTEM, but some servers
         # nest them inside it instead.
-        comments = base.get("COMMENTS") or base.get("Comments") or system.get("Comments")
+        comments = base.get("COMMENTS") or base.get("Comments") or system.get("COMMENTS") or system.get("Comments")
         if isinstance(comments, str):
             comments = comments.strip()
         if comments:

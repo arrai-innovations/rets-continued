@@ -96,10 +96,18 @@ class CompactSystemMetadataTester(unittest.TestCase):
         )
 
     def test_comments_nested_in_system(self):
-        self.assertEqual(
-            self.parse('<SYSTEM SystemID="MLS-RETS"><Comments>Some comments</Comments></SYSTEM>'),
-            [{"system_id": "MLS-RETS", "comments": "Some comments", "version": "1.11.76001"}],
-        )
+        for tag in ("Comments", "COMMENTS"):
+            with self.subTest(tag=tag):
+                self.assertEqual(
+                    self.parse(f'<SYSTEM SystemID="MLS-RETS"><{tag}>Some comments</{tag}></SYSTEM>'),
+                    [{"system_id": "MLS-RETS", "comments": "Some comments", "version": "1.11.76001"}],
+                )
+
+    def test_missing_system(self):
+        # Raised as the STANDARD-XML parser raises it, rather than returning no system.
+        for body in ("", "<SYSTEM/>", "<SYSTEM>\n</SYSTEM>", "<COMMENTS>Only comments</COMMENTS>"):
+            with self.subTest(body=body), self.assertRaisesRegex(ParseError, "Could not get the System key"):
+                self.parse(body)
 
     def test_empty_comments_element_is_omitted(self):
         self.assertEqual(
