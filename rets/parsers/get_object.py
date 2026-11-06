@@ -2,6 +2,7 @@ import hashlib
 import re
 
 import xmltodict
+from requests.structures import CaseInsensitiveDict
 
 from rets.exceptions import ParseError
 from rets.exceptions import RETSException
@@ -53,7 +54,8 @@ class MultipleObjectParser(ObjectParser):
         :param content: The whole response body
         :param start: Where the part starts in content
         :param end: Where the part ends in content
-        :return: tuple of the headers as a dict, and the body as bytes, or None if the part has none
+        :return: tuple of the headers as a dict keyed case-insensitively, and the body as bytes, or None if the
+        part has none
         """
         # The headers end at the first blank line, whichever line endings the server uses. Only the body is
         # copied out of the response, once, rather than the whole part at each step.
@@ -65,7 +67,8 @@ class MultipleObjectParser(ObjectParser):
             header = content[start:end]
             body = None
         lines = LINE_BREAK.split(header.decode("latin-1"))
-        headers = {k.strip(): v.strip() for k, v in (h.split(":", 1) for h in lines if ":" in h)}
+        # Header names are case-insensitive (RFC 2045), as they are in the response's own headers.
+        headers = CaseInsensitiveDict((k.strip(), v.strip()) for k, v in (h.split(":", 1) for h in lines if ":" in h))
         return headers, body
 
     @classmethod
@@ -109,7 +112,7 @@ class MultipleObjectParser(ObjectParser):
                 # Text ahead of the first delimiter is a preamble, which MIME allows and readers ignore. A
                 # server that leaves out the first delimiter still has its first part read, since that has
                 # the headers a part needs.
-                if not first or PART_HEADERS.intersection(name.lower() for name in headers):
+                if not first or any(name in headers for name in PART_HEADERS):
                     yield headers, body
 
             if found == -1:

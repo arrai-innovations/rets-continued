@@ -723,6 +723,20 @@ class MultipartObjectTester(unittest.TestCase):
             with self.subTest(body=body):
                 self.assertEqual(MultipleObjectParser._root_element(body), expected)
 
+    def test_header_names_in_any_case(self):
+        objs = self.parse(
+            b"--BOUND\r\ncontent-type: text/xml\r\ncontent-id: 1\r\n\r\n"
+            b'<RETS ReplyCode="20403" ReplyText="No Object Found"/>\r\n'
+            b"--BOUND\r\nCONTENT-ID: 1\r\nobject-id: 2\r\ncontent-TYPE: image/jpeg\r\nlocation: http://example.com/2.jpg\r\n"
+            b"\r\nfound\r\n--BOUND--\r\n"
+        )
+
+        # The lower-case XML error part is recognised and skipped, and the other part's headers are all read.
+        self.assertEqual(
+            [(o["content_id"], o["object_id"], o["content_type"], o["location"], o["content"]) for o in objs],
+            [("1", "2", "image/jpeg", "http://example.com/2.jpg", b"found")],
+        )
+
     def test_content_is_bytes_with_its_md5(self):
         content = bytes(range(256))
         objs = self.parse(b"--BOUND\r\nObject-ID: 1\r\n\r\n" + content + b"\r\n--BOUND--\r\n")
