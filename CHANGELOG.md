@@ -57,6 +57,7 @@
 * Read a metadata response whose `RETS` element has no attributes or children, such as `<RETS/>` or `<RETS>text</RETS>`, as holding no metadata, rather than failing with an `AttributeError`. Both formats return no entries, as COMPACT-DECODED already did for a `RETS` element with only a reply code.
 * Raise `ParseError` for a COMPACT-DECODED METADATA-SYSTEM response without a usable `SYSTEM` element, as STANDARD-XML does. `get_system_metadata()` failed with an `IndexError` instead, or an `AttributeError` when the `SYSTEM` element held only whitespace. Comments nested inside `SYSTEM` are also read when spelled `COMMENTS`, not only `Comments`.
 * End an auto-offset search quietly, logging a warning, when the server refuses a page it requested itself because the offset is past the end. Some servers, such as Flex MLS, truncate a page that ends at the last record and then reject the next offset with "Offset exceeds available rows.", which was raised after every row had been returned. Such an error on the first page, whose offset the caller chose, is still raised, as is any other error on a later page. Document `auto_offset` in the README, and correct its paging example to resume at record 10,001.
+* Read a search's `DELIMITER` value as hex, as RETS sends it. It was read as decimal, which only tab (`09`) survives, so a pipe delimiter, `7C`, failed the search with a `ValueError`. A value that is not hex now raises `ParseError` saying what was expected.
 
 ## 2.0.1
 

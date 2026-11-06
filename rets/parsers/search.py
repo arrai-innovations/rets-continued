@@ -4,6 +4,7 @@ import logging
 from defusedxml.ElementTree import iterparse
 
 from rets.exceptions import MaxrowException
+from rets.exceptions import ParseError
 from rets.exceptions import RETSException
 from rets.parsers.base import REPLY_CODE_PATHS
 from rets.parsers.base import Base
@@ -85,7 +86,7 @@ class OneXSearchCursor(Base):
             elif elem.tag == "DELIMITER":
                 val = elem.get("value")
                 if val:  # keep the tab default when the server sends the tag without a value
-                    delim = chr(int(val))
+                    delim = self._read_delimiter(val)
 
             # Analyze columns
             elif elem.tag == "COLUMNS":
@@ -101,6 +102,20 @@ class OneXSearchCursor(Base):
                 # The element has been dealt with, so drop it rather than keep every row attached to the
                 # root until the response ends.
                 root.remove(elem)
+
+    @staticmethod
+    def _read_delimiter(value):
+        """
+        Read the DELIMITER element's value, which RETS gives as the character's code in two hex digits, such as
+        "09" for a tab or "7C" for a pipe
+        :param value: The value attribute
+        :return: The delimiter character
+        """
+        try:
+            return chr(int(value, 16))
+        except ValueError:
+            msg = f"Could not read the search delimiter {value!r}, which RETS gives as two hex digits, such as 09."
+            raise ParseError(msg) from None
 
     @staticmethod
     def _check_reply_code(elem, path):

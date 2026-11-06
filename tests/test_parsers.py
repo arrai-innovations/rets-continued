@@ -1134,6 +1134,21 @@ class SearchCursorTester(unittest.TestCase):
         rows = self.parse('<RETS ReplyCode="0"><DELIMITER/><COLUMNS>\tListingID\t</COLUMNS><DATA>\t123\t</DATA></RETS>')
         self.assertEqual(rows, [{"ListingID": "123"}])
 
+    def test_delimiter_is_hex(self):
+        # Only tab reads the same in decimal, which hid that the value is hex.
+        for value, delimiter in (("09", "\t"), ("7C", "|"), ("7c", "|"), ("2C", ","), ("3B", ";")):
+            with self.subTest(value=value):
+                rows = self.parse(
+                    f'<RETS ReplyCode="0"><DELIMITER value="{value}"/>'
+                    f"<COLUMNS>{delimiter}ListingID{delimiter}City{delimiter}</COLUMNS>"
+                    f"<DATA>{delimiter}123{delimiter}New Haven{delimiter}</DATA></RETS>"
+                )
+                self.assertEqual(rows, [{"ListingID": "123", "City": "New Haven"}])
+
+    def test_unreadable_delimiter(self):
+        with self.assertRaisesRegex(ParseError, "two hex digits"):
+            self.parse('<RETS ReplyCode="0"><DELIMITER value="tab"/><COLUMNS>\tA\t</COLUMNS></RETS>')
+
     def test_missing_delimiter_element(self):
         rows = self.parse('<RETS ReplyCode="0"><COLUMNS>\tListingID\t</COLUMNS><DATA>\t123\t</DATA></RETS>')
         self.assertEqual(rows, [{"ListingID": "123"}])
