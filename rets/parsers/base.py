@@ -90,14 +90,23 @@ class Base:
         being the value in that column for each row
         :param columns_string: A string of column names
         :param dict_string: A string of values
-        :param delimiter: The delimiter to use to split the column and values
+        :param delimiter: The delimiter to use to split the column and values, or None to split on whitespace
         :return: dict
         """
-        if delimiter:
-            # COMPACT lines open and close with the delimiter, which leaves an unnamed column at each end.
-            return {k: v for k, v in zip(columns_string.split(delimiter), dict_string.split(delimiter)) if k != ""}
-        else:
-            return {k: v for k, v in zip(columns_string.split(), dict_string.split())}  # noqa: C416
+        delimiter = delimiter or None  # str.split(None) splits on runs of whitespace
+        return Base._columns_to_dict(columns_string.split(delimiter), dict_string.split(delimiter))
+
+    @staticmethod
+    def _columns_to_dict(columns, values):
+        """
+        Pairs each column name with the value in its place, as the COMPACT formats lay out a row. Every row of a
+        COMPACT response goes through here, for search results and metadata alike.
+        :param columns: The column names, already split
+        :param values: The row's values, already split
+        :return: dict
+        """
+        # COMPACT lines open and close with the delimiter, which leaves an unnamed column at each end.
+        return {column: value for column, value in zip(columns, values) if column != ""}
 
     def analyze_xml_response(self, response):
         """

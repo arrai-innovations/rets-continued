@@ -947,6 +947,24 @@ class ReplyCodeLocationTester(unittest.TestCase):
         self.assertEqual(list(OneXSearchCursor().generator(response=response)), [{"ListingID": "1"}])
 
 
+class DataColumnsTester(unittest.TestCase):
+    """Pairing a row's values with its column names"""
+
+    def test_delimited(self):
+        # The unnamed columns at each end of a COMPACT line are dropped, and empty values keep their place.
+        self.assertEqual(
+            Base.data_columns_to_dict("\tA\tB\tC\t", "\t1\t\tx y\t", delimiter="\t"),
+            {"A": "1", "B": "", "C": "x y"},
+        )
+
+    def test_whitespace(self):
+        for delimiter in (None, ""):
+            with self.subTest(delimiter=delimiter):
+                self.assertEqual(
+                    Base.data_columns_to_dict("A  B\tC", " 1 2  3 ", delimiter), {"A": "1", "B": "2", "C": "3"}
+                )
+
+
 class ReplyCodeReadersAgreeTester(unittest.TestCase):
     """The xmltodict, ElementTree and streaming readers find the same reply code in the same response"""
 

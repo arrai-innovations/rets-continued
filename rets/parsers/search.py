@@ -72,7 +72,7 @@ class OneXSearchCursor(Base):
                 # An empty row still counts, so that the offsets stay aligned with the rows the
                 # server actually sent.
                 row = elem.text or ""
-                data_dict = {column: data for column, data in zip(columns, row.split(delim)) if column != ""}
+                data_dict = self._columns_to_dict(columns, row.split(delim))
                 rows += 1
                 self.parsed_rows += 1  # Rows parsed with all requests
                 yield data_dict
