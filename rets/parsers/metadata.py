@@ -45,7 +45,12 @@ class MetadataParser(Base):
         attributes = self.id_attributes.get(metadata_type, ())
         if meta_id is None:
             return ()
-        return tuple(attribute for part, attribute in zip(str(meta_id).split(":"), attributes) if part == "*")
+        parts = str(meta_id).split(":")
+        if parts[-1] == "*" and len(parts) < len(attributes):
+            # A "*" that ends the ID early stands for the parts after it too, so "*" asks for every table or lookup
+            # in the system, and its result is keyed by resource and then by class or lookup, as for "*:*".
+            parts += ["*"] * (len(attributes) - len(parts))
+        return tuple(attribute for part, attribute in zip(parts, attributes) if part == "*")
 
     @staticmethod
     def _group_by_names(named_entries, metadata_type, key_by):

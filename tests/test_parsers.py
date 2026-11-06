@@ -335,10 +335,58 @@ class CompactWildcardMetadataTester(unittest.TestCase):
         )
         self.assertEqual(self.values(self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS)), ["A", "N", "S", "B"])
 
+    def test_whole_system_wildcard(self):
+        # "*" alone for a two-part ID asks for every resource's tables, keyed as "*:*" would be.
+        tables = "".join(
+            f'<METADATA-TABLE Resource="{resource}" Class="{resource_class}"><COLUMNS>\tSystemName\t</COLUMNS>'
+            f"<DATA>\t{name}\t</DATA></METADATA-TABLE>"
+            for resource, resource_class, name in (
+                ("Property", "RES", "A"),
+                ("Property", "LND", "B"),
+                ("Agent", "AGT", "C"),
+            )
+        )
+        result = self.parse("METADATA-TABLE", tables, meta_id="*")
+
+        self.assertEqual(
+            {
+                resource: {name: [row["SystemName"] for row in rows] for name, rows in classes.items()}
+                for resource, classes in result.items()
+            },
+            {"Property": {"RES": ["A"], "LND": ["B"]}, "Agent": {"AGT": ["C"]}},
+        )
+        self.assertEqual(
+            self.values(self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS, meta_id="*")),
+            {"Property": {"Status": ["A"], "Area": ["N", "S"]}, "Agent": {"Status": ["B"]}},
+        )
+
+    def test_keys_for_each_id(self):
+        parser = CompactMetadata()
+        cases = {
+            ("METADATA-TABLE", "*"): ("Resource", "Class"),
+            ("METADATA-TABLE", "*:*"): ("Resource", "Class"),
+            ("METADATA-TABLE", "*:RES"): ("Resource",),
+            ("METADATA-TABLE", "Property:*"): ("Class",),
+            ("METADATA-TABLE", "Property:RES"): (),
+            ("METADATA-TABLE", "Property"): (),
+            ("METADATA-LOOKUP_TYPE", "*"): ("Resource", "Lookup"),
+            ("METADATA-CLASS", "*"): ("Resource",),
+            ("METADATA-RESOURCE", 0): (),
+        }
+        for (metadata_type, meta_id), key_by in cases.items():
+            with self.subTest(metadata_type=metadata_type, meta_id=meta_id):
+                self.assertEqual(parser._wildcard_attributes(metadata_type, meta_id), key_by)
+
     def test_same_shape_as_standard_xml(self):
         # For each ID, the lookups a server would send for it: (resource, lookup, values).
         responses_by_id = {
             "*:*": [
+                ("Property", "Status", "A"),
+                ("Property", "Area", "N", "S"),
+                ("Agent", "Status", "B"),
+                ("Property", "Empty"),
+            ],
+            "*": [
                 ("Property", "Status", "A"),
                 ("Property", "Area", "N", "S"),
                 ("Agent", "Status", "B"),
