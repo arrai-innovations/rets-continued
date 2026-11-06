@@ -980,6 +980,26 @@ class StatusCodeTester(unittest.TestCase):
             self.assertEqual(caught.exception.reply_code, "20203")
             self.assertEqual(caught.exception.reply_text, "Miscellaneous search error.")
 
+    def test_rets_reply_code_with_an_error_status_and_a_search_parser(self):
+        # A search_parser need not check reply codes, so the session raises the error rather than leave it to one.
+        class RowsOnlyParser:
+            def generator(self, response):
+                yield from ()
+
+        self.session.search_parser = RowsOnlyParser()
+        with responses.RequestsMock() as resps:
+            resps.add(
+                resps.POST,
+                "http://server.rets.com/rets/Search.ashx",
+                body='<RETS ReplyCode="20203" ReplyText="Miscellaneous search error."/>',
+                status=500,
+            )
+
+            with self.assertRaises(RETSException) as caught:
+                self.search()
+
+        self.assertEqual(caught.exception.reply_code, "20203")
+
     def test_no_records_found_with_an_error_status(self):
         with responses.RequestsMock() as resps:
             resps.add(

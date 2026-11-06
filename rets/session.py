@@ -21,6 +21,7 @@ from rets.parsers.get_object import SingleObjectParser
 from rets.parsers.login import OneXLogin
 from rets.parsers.metadata import CompactMetadata
 from rets.parsers.metadata import StandardXMLMetadata
+from rets.parsers.search import SEARCH_SUCCESS_REPLY_CODES
 from rets.parsers.search import OneXSearchCursor
 from rets.utils import DMQLHelper
 from rets.utils.get_object import GetObject
@@ -676,8 +677,10 @@ class Session:
         if reply is not None:
             # Some servers send their RETS errors with an HTTP error status, and the reply code says more.
             reply_code, reply_text = reply
-            if capability == "Search" and reply_code == "20201":
-                # No Records Found, which the search parser turns into an empty result, as it does with a 200.
+            if capability == "Search" and reply_code in SEARCH_SUCCESS_REPLY_CODES:
+                # Such as No Records Found, which the search parser turns into an empty result, as it does with a
+                # 200. Any other reply code is raised here rather than left to the parser, since a search_parser
+                # given to the Session need not check reply codes at all.
                 return
             raise RETSException(reply_text, reply_code)
 

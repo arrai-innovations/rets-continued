@@ -12,6 +12,10 @@ from rets.parsers.base import reply_code_error
 
 logger = logging.getLogger("rets")
 
+# The reply codes a search response can carry without reporting an error. 20201 is No Records Found, which a search
+# returns as no rows.
+SEARCH_SUCCESS_REPLY_CODES = ("0", "20201")
+
 
 class ResponseStream(io.RawIOBase):
     """Reads a requests response body as a file, a chunk at a time, so it never has to be held in memory whole"""
@@ -108,8 +112,7 @@ class OneXSearchCursor(Base):
         """
         if tuple(path) not in REPLY_CODE_PATHS:
             return
-        # RETS Response 20201 - No Records Found. The search simply returns nothing.
-        error = reply_code_error(elem.attrib, ignore=("0", "20201"))
+        error = reply_code_error(elem.attrib, ignore=SEARCH_SUCCESS_REPLY_CODES)
         if error:
             # Raised like every other reply code, so callers can tell errors apart by reply_code.
             reply_code, reply_text = error
