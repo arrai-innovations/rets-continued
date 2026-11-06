@@ -377,6 +377,25 @@ class CompactWildcardMetadataTester(unittest.TestCase):
             with self.subTest(metadata_type=metadata_type, meta_id=meta_id):
                 self.assertEqual(parser._wildcard_attributes(metadata_type, meta_id), key_by)
 
+    def test_unknown_type(self):
+        # COMPACT-DECODED reads a type it has no keys for, returning its rows flat even for a wildcard, while
+        # STANDARD-XML, which needs to know where a type keeps its entries, refuses it.
+        element = (
+            '<METADATA-UPDATE Resource="Property" Class="RES"><COLUMNS>\tUpdateName\t</COLUMNS>'
+            "<DATA>\tAdd\t</DATA></METADATA-UPDATE>"
+        )
+
+        self.assertEqual(
+            self.parse("METADATA-UPDATE", element, meta_id="*"),
+            [{"UpdateName": "Add", "Resource": "Property", "Class": "RES"}],
+        )
+        with self.assertRaisesRegex(ParseError, "unknown metadata type of METADATA-UPDATE"):
+            StandardXMLMetadata().parse(
+                response=FakeResponse(f'<RETS ReplyCode="0"><METADATA>{element}</METADATA></RETS>'),
+                metadata_type="METADATA-UPDATE",
+                meta_id="*",
+            )
+
     def test_same_shape_as_standard_xml(self):
         # For each ID, the lookups a server would send for it: (resource, lookup, values).
         responses_by_id = {

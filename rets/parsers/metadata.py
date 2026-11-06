@@ -1,4 +1,5 @@
 import logging
+from typing import NamedTuple
 
 import xmltodict
 
@@ -10,17 +11,27 @@ from .base import Base
 logger = logging.getLogger("rets")
 
 
+class MetadataType(NamedTuple):
+    """What the parsers need to know about a metadata type"""
+
+    # The child element holding its entries in the STANDARD-XML format, matched case-insensitively.
+    entries: str
+    # The attribute each part of its ID names, in order. A wildcard result is keyed by the attributes whose part of
+    # the ID is a "*".
+    id_attributes: tuple
+
+
 class MetadataParser(Base):
     """What the metadata parsers share: how a wildcard result is keyed, so it has the same shape in each format"""
 
-    # For each metadata type: the attribute each part of its ID names, in order. A wildcard result is keyed by
-    # the attributes whose part of the ID is a "*".
-    id_attributes = {  # noqa: RUF012
-        "METADATA-CLASS": ("Resource",),
-        "METADATA-RESOURCE": (),
-        "METADATA-LOOKUP_TYPE": ("Resource", "Lookup"),
-        "METADATA-OBJECT": ("Resource",),
-        "METADATA-TABLE": ("Resource", "Class"),
+    # The metadata types the parsers know. The COMPACT-DECODED parser reads others too, without keying their
+    # wildcard results, while the STANDARD-XML parser refuses them.
+    metadata_types = {  # noqa: RUF012
+        "METADATA-CLASS": MetadataType(entries="class", id_attributes=("Resource",)),
+        "METADATA-RESOURCE": MetadataType(entries="resource", id_attributes=()),
+        "METADATA-LOOKUP_TYPE": MetadataType(entries="lookuptype", id_attributes=("Resource", "Lookup")),
+        "METADATA-OBJECT": MetadataType(entries="object", id_attributes=("Resource",)),
+        "METADATA-TABLE": MetadataType(entries="field", id_attributes=("Resource", "Class")),
     }
 
     @staticmethod
@@ -42,7 +53,8 @@ class MetadataParser(Base):
         :param meta_id: The ID the metadata was requested with, or None
         :return: tuple of attribute names, empty for a request without a wildcard
         """
-        attributes = self.id_attributes.get(metadata_type, ())
+        known = self.metadata_types.get(metadata_type)
+        attributes = known.id_attributes if known else ()
         if meta_id is None:
             return ()
         parts = str(meta_id).split(":")
@@ -183,15 +195,6 @@ class CompactMetadata(MetadataParser):
 class StandardXMLMetadata(MetadataParser):
     """Parses STANDARD-XML RETS responses"""
 
-    # For each metadata type: the child element holding its entries, matched case-insensitively.
-    element_keys = {  # noqa: RUF012
-        "METADATA-CLASS": "class",
-        "METADATA-RESOURCE": "resource",
-        "METADATA-LOOKUP_TYPE": "lookuptype",
-        "METADATA-OBJECT": "object",
-        "METADATA-TABLE": "field",
-    }
-
     @staticmethod
     def _identify_key(some_dict, some_key):
         # Get the version with the right capitalization from the dictionary
@@ -228,7 +231,7 @@ class StandardXMLMetadata(MetadataParser):
         if metadata_type == "METADATA-SYSTEM":
             return [self._parse_system(metadata.get(metadata_type) or {})]
 
-        if metadata_type not in self.element_keys:
+        if metadata_type not in self.metadata_types:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
             raise ParseError(msg)
 
@@ -240,7 +243,7 @@ class StandardXMLMetadata(MetadataParser):
         base = metadata[metadata_type]
         if isinstance(base, list) and not key_by:
             # Several elements came back for an ID without a wildcard, so tell them apart by the name each covers.
-            key_by = self.id_attributes[metadata_type][-1:]
+            key_by = self.metadata_types[metadata_type].id_attributes[-1:]
             if not key_by:
                 msg = f"Got more than one {metadata_type!s} element, but there is nothing to tell them apart by"
                 raise ParseError(msg)
@@ -294,6 +297,6 @@ class StandardXMLMetadata(MetadataParser):
             # The element has attributes but no child elements, such as a lookup with no values. An
             # element whose children go by an unexpected name still fails below, rather than look empty.
             return []
-        key_cap = self._identify_key(element, self.element_keys[metadata_type])
+        key_cap = self._identify_key(element, self.metadata_types[metadata_type].entries)
         entries = element[key_cap]
         return entries if isinstance(entries, list) else [entries]
