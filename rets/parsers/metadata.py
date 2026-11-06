@@ -28,6 +28,10 @@ class CompactMetadata(Base):
 
         # xmltodict returns a list when the metadata element repeats, as it does for a wildcard lookup.
         for element in base if isinstance(base, list) else [base]:
+            if not isinstance(element, dict):
+                # An element with no attributes and no children holds no entries. xmltodict gives a bare one as
+                # None, and, since whitespace is kept, one holding only a line break as that text.
+                continue
             yield from self._parse_element(element)
 
     def _parse_element(self, base):

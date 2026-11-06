@@ -47,6 +47,7 @@
 * Read STANDARD-XML metadata responses that hold no entries. A wildcard that matches nothing returns an empty dict, a metadata element with no entries, such as a lookup without values, returns an empty list, or maps its name to one in a wildcard result, and an empty `METADATA` element no longer fails with an `AttributeError`. A response missing the requested metadata element entirely raises `ParseError` saying so.
 * Ignore the preamble of a multipart GetObject response, the text a server may send ahead of the first delimiter, which was returned as an extra object with every field `None`. Text there that has a `Content-ID`, `Object-ID` or `Content-Type` header is still read as the first object, for servers that leave out the first delimiter.
 * Key a STANDARD-XML wildcard result by the part of the ID that holds the `*`. A wildcard resource, as in `get_lookup_values('*', 'Status')` or `get_table_metadata('*', 'RES')`, raised `ParseError` whenever two resources shared a lookup or class name, since the result was always keyed by that name. It is now keyed by resource, and a wildcard in both parts returns a dict of dicts, keyed by resource and then by lookup or class. `StandardXMLMetadata.parse()` takes the requested `meta_id` to tell which part holds the wildcard.
+* Read a COMPACT-DECODED metadata element that has no attributes and no entries, such as `<METADATA-LOOKUP_TYPE/>`, as empty, rather than failing with an `AttributeError`. In a wildcard response, such an element no longer fails the entries of the others.
 
 ## 2.0.1
 

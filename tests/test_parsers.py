@@ -151,6 +151,35 @@ class CompactDataMetadataTester(unittest.TestCase):
         )
 
 
+class CompactEmptyMetadataTester(unittest.TestCase):
+    """COMPACT-DECODED metadata elements that hold no entries"""
+
+    def parse(self, elements):
+        response = FakeResponse(f'<RETS ReplyCode="0">{elements}</RETS>')
+        return list(CompactMetadata().parse(response=response, metadata_type="METADATA-LOOKUP_TYPE"))
+
+    def test_element_with_no_attributes_or_entries(self):
+        for element in ("<METADATA-LOOKUP_TYPE>\n</METADATA-LOOKUP_TYPE>", "<METADATA-LOOKUP_TYPE/>"):
+            with self.subTest(element=element):
+                self.assertEqual(self.parse(element), [])
+
+    def test_wildcard_with_an_empty_element(self):
+        # The empty element does not fail the entries of the others.
+        self.assertEqual(
+            self.parse(
+                '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Area"><COLUMNS>\tValue\t</COLUMNS>'
+                "<DATA>\tN\t</DATA></METADATA-LOOKUP_TYPE>"
+                "<METADATA-LOOKUP_TYPE>\n</METADATA-LOOKUP_TYPE>"
+            ),
+            [{"Value": "N", "Resource": "Property", "Lookup": "Area"}],
+        )
+
+    def test_element_with_attributes_and_no_entries(self):
+        self.assertEqual(
+            self.parse('<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Area">\n</METADATA-LOOKUP_TYPE>'), []
+        )
+
+
 class StandardXMLWildcardMetadataTester(unittest.TestCase):
     """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
 
