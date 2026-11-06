@@ -47,6 +47,22 @@ class HTTPExceptionTester(unittest.TestCase):
         self.assertEqual(error.status_code, 500)
         self.assertEqual(str(error), "Server Error")
 
+    def test_raised_like_a_plain_exception(self):
+        # How code could raise it before it had a status_code, which must keep working.
+        for args in ((), ("Server Error",), ("Server Error", "details")):
+            with self.subTest(args=args):
+                error = HTTPException(*args)
+
+                self.assertEqual(error.args, args)
+                self.assertIsNone(error.status_code)
+        self.assertEqual(str(HTTPException()), "")
+
+    def test_status_code_is_keyword_only(self):
+        error = HTTPException("Server Error", status_code=500)
+
+        self.assertEqual(error.args, ("Server Error",))
+        self.assertEqual(repr(error), "HTTPException('Server Error')")
+
 
 class MaxrowExceptionTester(unittest.TestCase):
     def test_message(self):

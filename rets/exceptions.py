@@ -18,8 +18,10 @@ class RETSException(Exception):  # noqa: N818
 class HTTPException(Exception):  # noqa: N818
     """The RETS server refused the HTTP request, or answered it with a redirect that was not followed"""
 
-    def __init__(self, message, status_code=None):
-        super().__init__(message)
+    def __init__(self, *args, status_code=None):
+        # Takes any arguments, as a plain Exception does, so code that raised it before status_code was added
+        # still works. status_code is keyword-only, so it never shifts the meaning of a positional argument.
+        super().__init__(*args)
         self.status_code = status_code
 
 
