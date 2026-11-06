@@ -4,7 +4,7 @@
 
 * **Breaking:** drop support for Python 3.10, which reached its end of life in October 2026. The package now requires Python 3.11 or later.
 * Preserve every lookup's values in wildcard STANDARD-XML metadata requests, rather than reducing the result to a list of lookup names.
-* Start each search's auto-offset at zero, so repeated searches through a shared search parser no longer skip rows.
+* Work out each auto-offset from the rows the current search has returned, rather than from the search parser's running total. A `search_parser` given to the Session is shared by every search, so its total took in earlier searches' rows, and a later search that followed a truncated response skipped that many records.
 * Read COMPACT METADATA-SYSTEM fields independently of each other, accept the mixed-case `<System>` element, and read comments from the sibling `COMMENTS` element.
 * Recognize "X-" prefixed vendor capabilities in the login response.
 * Tolerate responses missing a Content-Type header, empty search rows, and empty delimiters.
