@@ -600,6 +600,30 @@ class SessionTester(unittest.TestCase):
 
         self.assertEqual(caught.exception.reply_code, "20209")
 
+    def test_auto_offset_raises_a_rejected_offset_parameter(self):
+        # A server that does not take Offset at all has more rows than the first page, so its error must surface.
+        with self.assertRaises(RETSException) as caught:
+            self.search_past_the_end('<RETS ReplyCode="20203" ReplyText="Invalid parameter: Offset"/>')
+
+        self.assertEqual(caught.exception.reply_text, "Invalid parameter: Offset")
+
+    def test_offset_errors(self):
+        cases = {
+            "Offset exceeds available rows.": True,
+            "OFFSET EXCEEDS AVAILABLE ROWS": True,
+            "Requested offset is beyond the end of the result set": True,
+            "Offset out of range": True,
+            "Offset 5001 is greater than the record count": True,
+            "Invalid parameter: Offset": False,
+            "Offset not supported": False,
+            "Invalid offset": False,
+            "Records exceed the limit": False,
+            None: False,
+        }
+        for reply_text, expected in cases.items():
+            with self.subTest(reply_text=reply_text):
+                self.assertEqual(Session._is_offset_error(RETSException(reply_text, "20203")), expected)
+
     def test_offset_error_on_the_first_page_is_raised(self):
         # That offset is the caller's own, so the error is theirs to see.
         with self.assertRaises(RETSException):

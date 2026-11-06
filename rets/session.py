@@ -29,6 +29,12 @@ from rets.utils.get_object import GetObject
 
 logger = logging.getLogger("rets")
 
+# Words a server's reply text uses to say an offset is beyond the records it has, as in "Offset exceeds available
+# rows."
+OFFSET_PAST_THE_END = re.compile(
+    r"\b(?:exceed|beyond|out of range|past|greater than|larger than|too (?:large|high|big))"
+)
+
 
 class Session:
     """The Session object that makes requests to the RETS Server"""
@@ -560,12 +566,15 @@ class Session:
     @staticmethod
     def _is_offset_error(error):
         """
-        Whether a RETS error reports an offset the server cannot serve, such as Flex MLS's "Offset exceeds
-        available rows." The reply code for this is not standard, so the reply text is all there is to go by.
+        Whether a RETS error reports an offset past the records the server has, such as Flex MLS's "Offset exceeds
+        available rows." The reply code for this is not standard, so the reply text is all there is to go by. It
+        must say the offset is beyond the records, so that a server rejecting the Offset parameter itself, with
+        "Invalid parameter: Offset" say, still has its error raised rather than its first page taken for all.
         :param error: The RETSException
         :return: bool
         """
-        return "offset" in str(error.reply_text or "").lower()
+        text = str(error.reply_text or "").lower()
+        return "offset" in text and OFFSET_PAST_THE_END.search(text) is not None
 
     def _request(self, capability, options=None, stream=False, *, auth_fallback=False):
         """
