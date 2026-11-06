@@ -562,6 +562,49 @@ class SessionTester(unittest.TestCase):
         # Records 11 to 13 came back, so the next page starts at record 14.
         self.assertEqual([q.get("Offset") for q in sent], [["11"], ["14"]])
 
+    OFFSET_ERROR = '<RETS ReplyCode="20203" ReplyText="Offset exceeds available rows."/>'
+
+    def search_past_the_end(self, follow_up_body, follow_up_status=200, first_body=None):
+        """Search with a truncated first page, then the given follow-up page, returning the rows and requests"""
+        if first_body is None:
+            with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:
+                first_body = "".join(f.readlines())
+
+        with responses.RequestsMock(assert_all_requests_are_fired=False) as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=first_body, status=200)
+            resps.add(
+                resps.POST, "http://server.rets.com/rets/Search.ashx", body=follow_up_body, status=follow_up_status
+            )
+
+            results = []
+            try:
+                for row in self.session.search(resource="Property", resource_class="RES", dmql_query="x"):
+                    results.append(row)
+            finally:
+                sent = [parse_qs(call.request.body).get("Offset") for call in resps.calls]
+        return results, sent
+
+    def test_auto_offset_ends_at_an_offset_past_the_end(self):
+        # The first page held the last records, yet was truncated, so the next page starts past the end.
+        for status in (200, 400):
+            with self.subTest(status=status), self.assertLogs("rets", level="WARNING") as logs:
+                results, sent = self.search_past_the_end(self.OFFSET_ERROR, follow_up_status=status)
+
+                self.assertEqual(len(results), 3)
+                self.assertEqual(sent, [None, ["4"]])
+                self.assertIn("Offset exceeds available rows.", logs.output[-1])
+
+    def test_auto_offset_raises_other_errors_on_a_later_page(self):
+        with self.assertRaises(RETSException) as caught:
+            self.search_past_the_end('<RETS ReplyCode="20209" ReplyText="Timeout."/>')
+
+        self.assertEqual(caught.exception.reply_code, "20209")
+
+    def test_offset_error_on_the_first_page_is_raised(self):
+        # That offset is the caller's own, so the error is theirs to see.
+        with self.assertRaises(RETSException):
+            self.search_past_the_end(follow_up_body="", first_body=self.OFFSET_ERROR)
+
     def test_auto_offset_with_shared_search_parser(self):
         """A search_parser is reused by every search, so its state must not shift later offsets."""
         with open("tests/rets_responses/COMPACT-DECODED/Search_1of2.xml") as f:

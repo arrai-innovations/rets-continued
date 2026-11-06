@@ -252,6 +252,7 @@ The search method takes the following parameters:
 - limit=None: Limit search values count
 - offset=None: The number of the first record to return. RETS numbers records from 1, so to skip the first 100 records, pass `offset=101`. Leaving it out starts from the first record. Useful when RETS limits number of results or transactions
 - optional_parameters=None: Values for option paramters
+- auto_offset=True: When the server truncates the results, request the next page automatically, and keep going until the server stops truncating or `limit` rows have come back. Some servers truncate a page that ends at the last record, then refuse the next page's offset; the search then ends with every row returned, and logs a warning.
 - query_type: The query type to submit as. Defaults to `DMQL2`
 - standard_names: Boolean for if the search uses standard names.
     Defaults to `0` indicating the search uses system field names
@@ -274,15 +275,17 @@ Many RETS servers limit the number of results returned with a search request. Yo
 
 The small_res just has a single listing returned.
 
+By default the search follows truncated results itself (see `auto_offset` above). To page through them yourself instead, turn that off:
+
 ```python
->>> first_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"})
+>>> first_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"}, auto_offset=False)
 ```
 
 The RETS server only returned the first 10,000 results from this query.
- Do a second query to get the rest of the results.
+ Do a second query, starting at record 10,001, to get the rest of the results.
 
 ```python
->>> second_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"}, offset=10000)
+>>> second_res = rets_client.search('Property', 'RES', search_filter={'Status': 'A"}, offset=10001, auto_offset=False)
 ```
 
 Lastly, if there are any other parameters to send to the Search end point, you may provide them in the optional_parameters dict.

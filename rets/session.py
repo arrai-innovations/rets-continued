@@ -430,7 +430,7 @@ class Session:
         :param offset: The number of the first record to return. RETS numbers records from 1, and 0 or None also
         starts from the first. Useful when RETS limits number of results or transactions
         :param optional_parameters: Values for option paramters
-        :param auto_offset: Should the search be allowed to trigger subsequent searches.
+        :param auto_offset: Should the search request the next page itself when the server truncates the results.
         :param query_type: DMQL or DMQL2 depending on the rets server.
         :param standard_names: 1 to use standard names, 0 to use system names
         :param response_format: COMPACT-DECODED, COMPACT, or STANDARD-XML. STANDARD-XML needs the Session's
@@ -502,7 +502,7 @@ class Session:
         :param search_cursor: The parser turning each response into row dicts
         :param limit: The number of rows the caller asked for, or None for as many as the server has
         :param offset: The offset the search started from
-        :param auto_offset: Should the search be allowed to trigger subsequent searches.
+        :param auto_offset: Should the search request the next page itself when the server truncates the results.
         :return: generator of dicts
         """
         response = self._request(capability="Search", options={"query": parameters}, stream=True)
@@ -510,10 +510,15 @@ class Session:
         # given to the Session is reused by every search, so its count carries over from
         # earlier searches and would offset this one past results it never returned.
         rows_returned = 0  # rows yielded so far, across every request this search has made
+        following = False  # whether this search has gone on to a page of its own offsetting
         try:
             while True:
                 rows_before_request = rows_returned
                 try:
+                    if following:
+                        # Requested here, so that a refusal reaches the RETSException handler below too.
+                        response.close()
+                        response = self._request(capability="Search", options={"query": parameters}, stream=True)
                     for row in search_cursor.generator(response=response):
                         rows_returned += 1
                         yield row
@@ -527,20 +532,40 @@ class Session:
 
                     # Recursive searching if automatically performing offsets for the  client.
                     # Without a limit, keep going until the server stops truncating.
-                    if auto_offset and (not limit or limit > rows_returned):
-                        if limit:
-                            # have not returned results to the desired limit
-                            parameters["Limit"] = limit - rows_returned
-                        # RETS numbers records from 1, and a search without an offset starts at the first.
-                        parameters["Offset"] = (offset or 1) + rows_returned
-                        response.close()
-                        response = self._request(capability="Search", options={"query": parameters}, stream=True)
-                    else:
+                    if not (auto_offset and (not limit or limit > rows_returned)):
                         break  # Got max row exception but do not get more results
+                    if limit:
+                        # have not returned results to the desired limit
+                        parameters["Limit"] = limit - rows_returned
+                    # RETS numbers records from 1, and a search without an offset starts at the first.
+                    parameters["Offset"] = (offset or 1) + rows_returned
+                    following = True
+
+                except RETSException as error:
+                    if following and rows_returned == rows_before_request and self._is_offset_error(error):
+                        # The last page ended at the last record, yet the server still truncated it, so this
+                        # page starts past the end. Every row has been returned, so the search is complete.
+                        logger.warning(
+                            "The RETS server refused the next page of a truncated search, which every row had "
+                            "already been returned from: %s",
+                            error,
+                        )
+                        break
+                    raise
         finally:
             # A streamed response holds its connection until it is read to the end or closed. This also
             # covers a caller that stops iterating early, and a parser that raises.
             response.close()
+
+    @staticmethod
+    def _is_offset_error(error):
+        """
+        Whether a RETS error reports an offset the server cannot serve, such as Flex MLS's "Offset exceeds
+        available rows." The reply code for this is not standard, so the reply text is all there is to go by.
+        :param error: The RETSException
+        :return: bool
+        """
+        return "offset" in str(error.reply_text or "").lower()
 
     def _request(self, capability, options=None, stream=False, *, auth_fallback=False):
         """
