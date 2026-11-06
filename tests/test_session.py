@@ -1117,6 +1117,71 @@ class ContextManagerTester(unittest.TestCase):
         self.assertEqual(urls[-1], self.LOGOUT_URL)
 
 
+class ActionFailureTester(unittest.TestCase):
+    """A with block whose login fails in the Action transaction still ends the server session"""
+
+    LOGIN_URL = "http://server.rets.com/rets/Login.ashx"
+    ACTION_URL = "http://server.rets.com/rets/Action.ashx"
+    LOGOUT_URL = "http://server.rets.com/rets/Logout.ashx"
+    LOGIN_BODY = (
+        '<RETS ReplyCode="0" ReplyText="Success">\r\n<RETS-RESPONSE>\r\n'
+        f"Login={LOGIN_URL}\r\nAction={ACTION_URL}\r\nLogout={LOGOUT_URL}\r\n"
+        "</RETS-RESPONSE>\r\n</RETS>"
+    )
+
+    def enter(self, action_status, logout_status=200, login_status=200):
+        """Enter a with block, returning the error it raised, the URLs requested and the session"""
+        session = Session(login_url=self.LOGIN_URL, username="retsuser", version="1.7.2")
+        with responses.RequestsMock(assert_all_requests_are_fired=False) as resps:
+            resps.add(resps.POST, self.LOGIN_URL, body=self.LOGIN_BODY, status=login_status)
+            resps.add(resps.GET, self.ACTION_URL, body="", status=action_status)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=logout_status)
+
+            error = None
+            try:
+                with session:
+                    self.fail("The block should not run when the login fails")
+            except (HTTPException, NotLoggedIn) as e:
+                error = e
+            urls = [call.request.url.split("?")[0] for call in resps.calls]
+        return error, urls, session
+
+    def test_action_failure_logs_out(self):
+        error, urls, session = self.enter(action_status=503)
+
+        self.assertEqual(error.status_code, 503)
+        self.assertEqual(urls, [self.LOGIN_URL, self.ACTION_URL, self.LOGOUT_URL])
+        self.assertEqual(session.capabilities, {"Login": self.LOGIN_URL})
+
+    def test_logout_failure_does_not_hide_the_action_failure(self):
+        with self.assertLogs("rets", level="WARNING") as logs:
+            error, urls, _session = self.enter(action_status=503, logout_status=500)
+
+        # The Action failure is the one the caller needs, not the logout's.
+        self.assertEqual(error.status_code, 503)
+        self.assertEqual(urls, [self.LOGIN_URL, self.ACTION_URL, self.LOGOUT_URL])
+        self.assertIn("Could not log out of the RETS session after the login failed.", logs.output[0])
+
+    def test_refused_login_does_not_log_out(self):
+        # Nothing was opened on the server, so there is nothing to end.
+        error, urls, _session = self.enter(action_status=200, login_status=401)
+
+        self.assertIsInstance(error, NotLoggedIn)
+        self.assertEqual(urls, [self.LOGIN_URL])
+
+    def test_login_outside_a_with_block_keeps_the_session(self):
+        # A caller of login() holds the session, so it decides whether to carry on or log out.
+        session = Session(login_url=self.LOGIN_URL, username="retsuser", version="1.7.2")
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, self.LOGIN_URL, body=self.LOGIN_BODY, status=200)
+            resps.add(resps.GET, self.ACTION_URL, body="", status=503)
+
+            with self.assertRaises(HTTPException):
+                session.login()
+
+        self.assertIn("Logout", session.capabilities)
+
+
 class NoLogoutCapabilityTester(unittest.TestCase):
     """Servers whose login response offers no Logout transaction"""
 

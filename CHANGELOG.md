@@ -48,6 +48,7 @@
 * Ignore the preamble of a multipart GetObject response, the text a server may send ahead of the first delimiter, which was returned as an extra object with every field `None`. Text there that has a `Content-ID`, `Object-ID` or `Content-Type` header is still read as the first object, for servers that leave out the first delimiter.
 * Key a STANDARD-XML wildcard result by the part of the ID that holds the `*`. A wildcard resource, as in `get_lookup_values('*', 'Status')` or `get_table_metadata('*', 'RES')`, raised `ParseError` whenever two resources shared a lookup or class name, since the result was always keyed by that name. It is now keyed by resource, and a wildcard in both parts returns a dict of dicts, keyed by resource and then by lookup or class. `StandardXMLMetadata.parse()` takes the requested `meta_id` to tell which part holds the wildcard.
 * Read a COMPACT-DECODED metadata element that has no attributes and no entries, such as `<METADATA-LOOKUP_TYPE/>`, as empty, rather than failing with an `AttributeError`. In a wildcard response, such an element no longer fails the entries of the others.
+* Log out when a `with Session(...)` block fails to start because the Action transaction failed after the login succeeded. The block never ran, so leaving it did not log out, and the session stayed open on the server until it timed out. A failed logout is logged as a warning, and the Action failure is raised. Calling `login()` directly still leaves the session logged in.
 
 ## 2.0.1
 

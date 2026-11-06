@@ -130,7 +130,18 @@ class Session:
 
     def __enter__(self):
         """Context Manager: Login when entering context"""
-        self.login()
+        try:
+            self.login()
+        except Exception:
+            # The block never starts, so __exit__ will not run to log out. A login that failed in the Action
+            # transaction had already opened a session on the server, and the caller never gets this object to
+            # end it, so end it here.
+            if self._logged_in:
+                try:
+                    self.logout()
+                except Exception:
+                    logger.warning("Could not log out of the RETS session after the login failed.", exc_info=True)
+            raise
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
