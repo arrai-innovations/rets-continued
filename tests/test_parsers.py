@@ -181,6 +181,159 @@ class CompactEmptyMetadataTester(unittest.TestCase):
         )
 
 
+def compact_lookup(resource, lookup, *values):
+    rows = "".join(f"<DATA>\t{value}\t</DATA>" for value in values)
+    columns = "<COLUMNS>\tValue\t</COLUMNS>" if values else ""
+    return f'<METADATA-LOOKUP_TYPE Resource="{resource}" Lookup="{lookup}">{columns}{rows}</METADATA-LOOKUP_TYPE>'
+
+
+def standard_lookup(resource, lookup, *values):
+    entries = "".join(f"<LookupType><Value>{value}</Value></LookupType>" for value in values)
+    return f'<METADATA-LOOKUP_TYPE Resource="{resource}" Lookup="{lookup}">{entries}</METADATA-LOOKUP_TYPE>'
+
+
+class CompactWildcardMetadataTester(unittest.TestCase):
+    """Keying a COMPACT-DECODED wildcard response by the names the wildcard stands for, as STANDARD-XML does"""
+
+    LOOKUPS = (
+        compact_lookup("Property", "Status", "A")
+        + compact_lookup("Property", "Area", "N", "S")
+        + compact_lookup("Agent", "Status", "B")
+    )
+
+    def parse(self, metadata_type, elements, meta_id=None, wildcard=False):
+        response = FakeResponse(f'<RETS ReplyCode="0">{elements}</RETS>')
+        return CompactMetadata().parse(
+            response=response, metadata_type=metadata_type, meta_id=meta_id, wildcard=wildcard
+        )
+
+    @staticmethod
+    def values(result):
+        """The result with each row reduced to its Value, to compare shapes"""
+        if isinstance(result, dict):
+            return {name: CompactWildcardMetadataTester.values(rows) for name, rows in result.items()}
+        return [row["Value"] for row in result]
+
+    def test_wildcard_name_keyed_by_name(self):
+        result = self.parse(
+            "METADATA-LOOKUP_TYPE",
+            compact_lookup("Property", "Status", "A") + compact_lookup("Property", "Area", "N", "S"),
+            meta_id="Property:*",
+        )
+
+        self.assertEqual(self.values(result), {"Status": ["A"], "Area": ["N", "S"]})
+        # Each row keeps the attributes of its element, as it does without a wildcard.
+        self.assertEqual(result["Area"][0], {"Value": "N", "Resource": "Property", "Lookup": "Area"})
+
+    def test_wildcard_resource_keyed_by_resource(self):
+        result = self.parse(
+            "METADATA-LOOKUP_TYPE",
+            compact_lookup("Property", "Status", "A") + compact_lookup("Agent", "Status", "B"),
+            meta_id="*:Status",
+        )
+
+        self.assertEqual(self.values(result), {"Property": ["A"], "Agent": ["B"]})
+
+    def test_wildcard_resource_and_name_nested(self):
+        self.assertEqual(
+            self.values(self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS, meta_id="*:*")),
+            {"Property": {"Status": ["A"], "Area": ["N", "S"]}, "Agent": {"Status": ["B"]}},
+        )
+
+    def test_wildcard_resource_for_tables_and_classes(self):
+        tables = (
+            '<METADATA-TABLE Resource="Property" Class="RES"><COLUMNS>\tSystemName\t</COLUMNS>'
+            "<DATA>\tA\t</DATA></METADATA-TABLE>"
+            '<METADATA-TABLE Resource="Agent" Class="RES"><COLUMNS>\tSystemName\t</COLUMNS>'
+            "<DATA>\tB\t</DATA></METADATA-TABLE>"
+        )
+        classes = (
+            '<METADATA-CLASS Resource="Property"><COLUMNS>\tClassName\t</COLUMNS><DATA>\tRES\t</DATA></METADATA-CLASS>'
+        )
+
+        self.assertEqual(
+            {
+                name: [row["SystemName"] for row in rows]
+                for name, rows in self.parse("METADATA-TABLE", tables, "*:RES").items()
+            },
+            {"Property": ["A"], "Agent": ["B"]},
+        )
+        self.assertEqual(list(self.parse("METADATA-CLASS", classes, "*")), ["Property"])
+
+    def test_wildcard_name_with_no_rows(self):
+        self.assertEqual(
+            self.values(
+                self.parse(
+                    "METADATA-LOOKUP_TYPE",
+                    compact_lookup("Property", "Status", "A") + compact_lookup("Property", "Empty"),
+                    meta_id="Property:*",
+                )
+            ),
+            {"Status": ["A"], "Empty": []},
+        )
+
+    def test_wildcard_matching_nothing(self):
+        for elements in ("", "<METADATA-LOOKUP_TYPE/>", "<METADATA-LOOKUP_TYPE>\n</METADATA-LOOKUP_TYPE>"):
+            with self.subTest(elements=elements):
+                self.assertEqual(self.parse("METADATA-LOOKUP_TYPE", elements, meta_id="Property:*"), {})
+
+    def test_repeated_element_is_refused(self):
+        with self.assertRaisesRegex(ParseError, "for Resource Property, Lookup Status"):
+            self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS + compact_lookup("Property", "Status", "C"), meta_id="*:*")
+
+    def test_missing_name_attribute(self):
+        with self.assertRaisesRegex(ParseError, "missing its Lookup attribute"):
+            self.parse(
+                "METADATA-LOOKUP_TYPE",
+                '<METADATA-LOOKUP_TYPE Resource="Property"><COLUMNS>\tValue\t</COLUMNS><DATA>\tA\t</DATA>'
+                "</METADATA-LOOKUP_TYPE>",
+                meta_id="Property:*",
+            )
+
+    def test_wildcard_without_the_id(self):
+        self.assertEqual(
+            list(self.parse("METADATA-LOOKUP_TYPE", compact_lookup("Property", "Status", "A"), wildcard=True)),
+            ["Status"],
+        )
+
+    def test_id_without_a_wildcard_is_a_list(self):
+        # Without a wildcard the rows stay in one list, even when the server sends several elements.
+        self.assertEqual(
+            self.values(self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS, meta_id="Property:Status")),
+            ["A", "N", "S", "B"],
+        )
+        self.assertEqual(self.values(self.parse("METADATA-LOOKUP_TYPE", self.LOOKUPS)), ["A", "N", "S", "B"])
+
+    def test_same_shape_as_standard_xml(self):
+        # For each ID, the lookups a server would send for it: (resource, lookup, values).
+        responses_by_id = {
+            "*:*": [
+                ("Property", "Status", "A"),
+                ("Property", "Area", "N", "S"),
+                ("Agent", "Status", "B"),
+                ("Property", "Empty"),
+            ],
+            "Property:*": [("Property", "Status", "A"), ("Property", "Area", "N", "S"), ("Property", "Empty")],
+            "*:Status": [("Property", "Status", "A"), ("Agent", "Status", "B")],
+        }
+        for meta_id, lookups in responses_by_id.items():
+            with self.subTest(meta_id=meta_id):
+                compact = self.parse(
+                    "METADATA-LOOKUP_TYPE", "".join(compact_lookup(*x) for x in lookups), meta_id=meta_id
+                )
+                standard = StandardXMLMetadata().parse(
+                    response=FakeResponse(
+                        '<RETS ReplyCode="0"><METADATA>'
+                        + "".join(standard_lookup(*x) for x in lookups)
+                        + "</METADATA></RETS>"
+                    ),
+                    metadata_type="METADATA-LOOKUP_TYPE",
+                    meta_id=meta_id,
+                )
+
+                self.assertEqual(self.values(compact), self.values(standard))
+
+
 class StandardXMLWildcardMetadataTester(unittest.TestCase):
     """Keying the metadata elements of a STANDARD-XML wildcard response by the name each one covers"""
 

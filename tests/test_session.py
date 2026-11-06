@@ -737,15 +737,33 @@ class SessionTester(unittest.TestCase):
             )
             lookup_values = self.session.get_lookup_values(resource="Property", lookup_name="*")
 
+        # Keyed by lookup, as in the STANDARD-XML format, and each row still names its lookup.
         self.assertEqual(
-            [(x["Lookup"], x["Value"]) for x in lookup_values],
-            [
-                ("State", "AL"),
-                ("State", "CT"),
-                ("PropertyType", "COML"),
-                ("PropertyType", "RES"),
-                ("PropertyType", "RNT"),
-            ],
+            {name: [(x["Lookup"], x["Value"]) for x in rows] for name, rows in lookup_values.items()},
+            {
+                "State": [("State", "AL"), ("State", "CT")],
+                "PropertyType": [("PropertyType", "COML"), ("PropertyType", "RES"), ("PropertyType", "RNT")],
+            },
+        )
+
+    def test_wildcard_resource_lookup_metadata(self):
+        body = (
+            '<RETS ReplyCode="0">'
+            '<METADATA-LOOKUP_TYPE Resource="Property" Lookup="Status"><COLUMNS>\tValue\t</COLUMNS>'
+            "<DATA>\tA\t</DATA></METADATA-LOOKUP_TYPE>"
+            '<METADATA-LOOKUP_TYPE Resource="Agent" Lookup="Status"><COLUMNS>\tValue\t</COLUMNS>'
+            "<DATA>\tB\t</DATA></METADATA-LOOKUP_TYPE>"
+            "</RETS>"
+        )
+        with responses.RequestsMock() as resps:
+            resps.add(resps.POST, "http://server.rets.com/rets/GetMetadata.ashx", body=body, status=200)
+            lookup_values = self.session.get_lookup_values(resource="*", lookup_name="Status")
+            meta_id = parse_qs(resps.calls[0].request.body)["ID"][0]
+
+        self.assertEqual(meta_id, "*:Status")
+        self.assertEqual(
+            {name: [x["Value"] for x in rows] for name, rows in lookup_values.items()},
+            {"Property": ["A"], "Agent": ["B"]},
         )
 
     def test_object_metadata(self):
