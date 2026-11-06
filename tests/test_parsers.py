@@ -722,6 +722,15 @@ class MultipartObjectTester(unittest.TestCase):
 
         self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("2", b"found")])
 
+    def test_object_not_found_with_a_greater_than_sign_in_its_text(self):
+        objs = self.parse(
+            b"--BOUND\r\nContent-Type: text/xml\r\n\r\n"
+            b'<RETS ReplyCode="20403" ReplyText="Object id > max"/>trailing\r\n'
+            b"--BOUND\r\nObject-ID: 2\r\n\r\nfound\r\n--BOUND--\r\n"
+        )
+
+        self.assertEqual([(o["object_id"], o["content"]) for o in objs], [("2", b"found")])
+
     def test_error_in_a_nested_rets_status(self):
         with self.assertRaises(RETSException) as caught:
             self.parse(
@@ -741,6 +750,18 @@ class MultipartObjectTester(unittest.TestCase):
                 b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20403"/></RETS>'
             ),
             b'<RETS-STATUS ReplyCode="20403"></RETS-STATUS>junk': b'<RETS-STATUS ReplyCode="20403"></RETS-STATUS>',
+            # A ">" or "/>" inside an attribute value does not end the start tag.
+            b'<RETS ReplyCode="20403" ReplyText="Object id > max"/>junk': (
+                b'<RETS ReplyCode="20403" ReplyText="Object id > max"/>'
+            ),
+            b'<RETS ReplyCode="0" ReplyText="a/>b"><RETS-STATUS ReplyCode="20403"/></RETS>junk': (
+                b'<RETS ReplyCode="0" ReplyText="a/>b"><RETS-STATUS ReplyCode="20403"/></RETS>'
+            ),
+            b"<RETS ReplyCode='20403' ReplyText='x > y' />junk": b"<RETS ReplyCode='20403' ReplyText='x > y' />",
+            b'<RETS\r\n  ReplyCode = "20403"\r\n/>junk': b'<RETS\r\n  ReplyCode = "20403"\r\n/>',
+            b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20403"/></RETS >junk': (
+                b'<RETS ReplyCode="0"><RETS-STATUS ReplyCode="20403"/></RETS >'
+            ),
             b"no element": b"no element",
         }
         for body, expected in cases.items():

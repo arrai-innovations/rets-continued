@@ -13,6 +13,9 @@ LINE_BREAK = re.compile(r"\r?\n")
 HEADER_END = re.compile(rb"\r?\n\r?\n")
 # The start of an element, which skips an XML declaration, a comment or a closing tag.
 ELEMENT_START = re.compile(rb"<([A-Za-z_][\w.:-]*)")
+# The rest of an element's start tag. Attribute values are quoted, and may themselves hold a ">" or "/>", so the
+# tag only ends at a ">" outside the quotes. The group is "/" when the element closes itself.
+START_TAG_REST = re.compile(rb"""(?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*\s*(/?)>""")
 # A byte that is not whitespace once decoded as latin-1. A part holding none of them is empty.
 NOT_WHITESPACE = re.compile(rb"[^\t\n\x0b\x0c\r\x1c-\x1f \x85\xa0]")
 # RETS requires each part of a multipart GetObject response to carry these, so text ahead of the first
@@ -131,17 +134,17 @@ class MultipleObjectParser(ObjectParser):
         :return: bytes
         """
         root = ELEMENT_START.search(body)
-        if not root:
+        start_tag = root and START_TAG_REST.match(body, root.end())
+        if not start_tag:
+            # No element, or a start tag that is not well formed, which the parse will report.
             return body
-        name = root.group(1)
-        start_tag_end = body.find(b">", root.end())
-        if start_tag_end != -1 and body[start_tag_end - 1 : start_tag_end] == b"/":
+        if start_tag.group(1):
             # The root closes itself, as <RETS ReplyCode="20403"/> does.
-            return body[: start_tag_end + 1]
+            return body[: start_tag.end()]
         # Otherwise it ends at its closing tag, after any children such as a RETS-STATUS.
-        closing_tag = b"</" + name + b">"
-        close = body.find(closing_tag, root.end())
-        return body if close == -1 else body[: close + len(closing_tag)]
+        closing_tag = re.compile(rb"</" + re.escape(root.group(1)) + rb"\s*>")
+        close = closing_tag.search(body, start_tag.end())
+        return body if close is None else body[: close.end()]
 
     def parse_image_response(self, response):
         """
