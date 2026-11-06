@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **Breaking:** drop support for Python 3.10, which reached its end of life in October 2026. The package now requires Python 3.11 or later.
 * Preserve every lookup's values in wildcard STANDARD-XML metadata requests, rather than reducing the result to a list of lookup names.
 * Start each search's auto-offset at zero, so repeated searches through a shared search parser no longer skip rows.
 * Read COMPACT METADATA-SYSTEM fields independently of each other, accept the mixed-case `<System>` element, and read comments from the sibling `COMMENTS` element.

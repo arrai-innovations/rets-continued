@@ -3,7 +3,7 @@ exclude: '.git'
 fail_fast: true
 
 default_language_version:
-    python: python3.10 # sync with pyproject.toml
+    python: python3.11 # sync with pyproject.toml
 
 repos:
     - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook

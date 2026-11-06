@@ -1,6 +1,5 @@
 # rets-continued
 
-![python 3.10 status]
 ![python 3.11 status]
 ![python 3.12 status]
 ![python 3.13 status]
@@ -53,7 +52,7 @@ This fork is maintained by Arrai Innovations based on the original [`rets`](http
 
 ## Requirements
 
-- **Python:** 3.10+
+- **Python:** 3.11+
 
 ## Installation
 
@@ -397,12 +396,11 @@ pytest tests/
 - [https://www.flexmls.com/developers/rets/tutorials/example-rets-session/](https://www.flexmls.com/developers/rets/tutorials/example-rets-session/)
 - [http://www.realtor.org/retsorg.nsf/pages/docs](http://www.realtor.org/retsorg.nsf/pages/docs)
 
-[python 3.10 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.svg
 [python 3.11 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.11.svg
 [python 3.12 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.12.svg
 [python 3.13 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.13.svg
 [python 3.14 status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.14.svg
-[python coverage status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.10.coverage.svg
+[python coverage status]: https://docs.arrai.dev/rets-continued/artifacts/main/python_3.11.coverage.svg
 [code style: ruff]: https://img.shields.io/badge/code%20style-ruff-000000.svg?style=for-the-badge
 [ruff]: https://docs.astral.sh/ruff/formatter/#style-guide
 [ruff status]: https://docs.arrai.dev/rets-continued/artifacts/main/ruff.svg

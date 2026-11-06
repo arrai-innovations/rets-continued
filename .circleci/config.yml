@@ -7,7 +7,7 @@ orbs:
 executors:
     python:
         docker:
-            - image: cimg/python:3.10
+            - image: cimg/python:3.11
 jobs:
     build:
         executor: python
@@ -46,7 +46,7 @@ workflows:
             - lintinator/lint_python_fixed_ip:
                   name: lint
                   context: arrai-global
-                  executor: lintinator/python310
+                  executor: lintinator/python311
                   hooks: ruff
                   filters:
                       branches:
@@ -54,7 +54,7 @@ workflows:
                               - main
             - lintinator/lint_python:
                   name: lint-no-badge
-                  executor: lintinator/python310
+                  executor: lintinator/python311
                   hooks: ruff
                   create_badges: false
                   filters:
@@ -64,42 +64,19 @@ workflows:
     test:
         jobs:
             - pytest/pytest_fixed_ip:
-                  name: python_3.10
-                  executor: pytest/python310
-                  resource_class: small
-                  context: arrai-global
-                  filters:
-                      branches:
-                          only:
-                              - main
-            - pytest/pytest_fixed_ip:
-                  name: python_3.10-no-badge
-                  executor: pytest/python310
-                  resource_class: small
-                  context: arrai-global
-                  create_badges: false
-                  filters:
-                      tags:
-                          only: /.*/
-                      branches:
-                          ignore:
-                              - main
-            - pytest/pytest_fixed_ip:
                   name: python_3.11
                   executor: pytest/python311
                   resource_class: small
                   context: arrai-global
-                  build_coverage: false
                   filters:
                       branches:
                           only:
                               - main
-            - pytest/pytest:
+            - pytest/pytest_fixed_ip:
                   name: python_3.11-no-badge
                   executor: pytest/python311
                   resource_class: small
                   context: arrai-global
-                  build_coverage: false
                   create_badges: false
                   filters:
                       tags:
@@ -179,7 +156,6 @@ workflows:
             - build:
                   name: build
                   requires:
-                      - python_3.10-no-badge
                       - python_3.11-no-badge
                       - python_3.12-no-badge
                       - python_3.13-no-badge
