@@ -1313,14 +1313,15 @@ class LogoutStateTester(unittest.TestCase):
         self.assertIn("Logout", self.session.capabilities)
         self.assertEqual(self.session.session_id, "abc123")
 
-    def test_logout_refused_with_a_401_forgets_the_login(self):
+    def test_logout_refused_with_a_401_counts_as_logged_out(self):
         with responses.RequestsMock() as resps:
             self.add_login(resps)
             resps.add(resps.POST, self.LOGOUT_URL, body="", status=401)
             self.session.login()
 
-            with self.assertRaises(NotLoggedIn):
-                self.session.logout()
+            with self.assertLogs("rets", level="INFO") as logs:
+                self.assertTrue(self.session.logout())
+            self.assertIn("The RETS server had already ended the session", logs.output[-1])
 
             # The server has already ended the session, so nothing is left to retry with it.
             self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
@@ -1335,10 +1336,22 @@ class LogoutStateTester(unittest.TestCase):
             self.add_login(resps)
             resps.add(resps.POST, self.LOGOUT_URL, body="", status=401)
 
-            with self.session as s, self.assertRaises(NotLoggedIn):
+            with self.session as s:
                 s.logout()
 
             self.assertEqual([call.request.url for call in resps.calls], [self.LOGIN_URL, self.LOGOUT_URL])
+
+    def test_with_block_whose_session_expired_exits_cleanly(self):
+        # The block's work all succeeded, so the server having timed the session out must not fail it.
+        with responses.RequestsMock() as resps:
+            self.add_login(resps)
+            resps.add(resps.POST, self.LOGOUT_URL, body="", status=401)
+
+            with self.session:
+                pass
+
+            self.assertEqual([call.request.url for call in resps.calls], [self.LOGIN_URL, self.LOGOUT_URL])
+        self.assertEqual(self.session.capabilities, {"Login": self.LOGIN_URL})
 
     def test_logout_inside_a_with_block(self):
         with responses.RequestsMock() as resps:

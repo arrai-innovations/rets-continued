@@ -211,9 +211,9 @@ class Session:
     def logout(self):
         """
         Logs out of the RETS feed destroying the HTTP session. The session then keeps only the Login capability,
-        so it must log in again before making other requests. If the server answers that the session is not
-        logged in, the login is forgotten as well, and NotLoggedIn is raised. Any other failure keeps the login,
-        so logging out can be tried again.
+        so it must log in again before making other requests. A server that answers with a 401 has already ended
+        the session, such as after its timeout, so that counts as logged out too. Any other failure raises and
+        keeps the login, so logging out can be tried again.
         :return: True
         """
         if self._logged_in and "Logout" not in self.capabilities:
@@ -228,10 +228,12 @@ class Session:
         try:
             self._request(capability="Logout")
         except NotLoggedIn:
-            # The server no longer knows this session, such as after its timeout, so there is nothing to
-            # retry. Other failures keep the login, since the server may still hold the session.
-            self._forget_login()
-            raise
+            if not self._logged_in:
+                # Raised before any request, since there has been no login to log out of.
+                raise
+            # The server no longer knows this session, such as after its timeout, so it is already logged out.
+            # Other failures keep the login, since the server may still hold the session.
+            logger.info("The RETS server had already ended the session, so there was nothing to log out of.")
         self._forget_login()
         return True
 
