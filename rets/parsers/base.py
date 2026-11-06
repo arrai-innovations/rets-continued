@@ -15,6 +15,20 @@ NO_REPLY_TEXT = "RETS did not supply a Reply Text."
 REPLY_CODE_PATHS = (("RETS",), ("RETS", "RETS-STATUS"), ("RETS-STATUS",))
 
 
+# The media types a RETS server sends an XML reply as, such as an error in place of the object asked for. A type
+# that only ends in "+xml", such as an SVG image, is content.
+XML_REPLY_MEDIA_TYPES = frozenset(("text/xml", "application/xml"))
+
+
+def is_xml_reply(content_type):
+    """
+    Whether a Content-Type is that of an XML reply, whatever its parameters, such as a charset, or its case
+    :param content_type: The Content-Type header's value, or None
+    :return: bool
+    """
+    return (content_type or "").split(";", 1)[0].strip().lower() in XML_REPLY_MEDIA_TYPES
+
+
 def reply_code_error(attributes, ignore=("0",)):
     """
     Reads the reply code from the attributes of a RETS or RETS-STATUS element. Every reader of reply codes goes
@@ -115,7 +129,7 @@ class Base:
         :param response: The response from the RETS server
         :return: None
         """
-        if "xml" in response.headers.get("Content-Type", ""):
+        if is_xml_reply(response.headers.get("Content-Type")):
             self.analyze_reply_code(xml_response_dict=xmltodict.parse(response.text))
 
     def analyze_reply_code(self, xml_response_dict):

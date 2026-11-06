@@ -7,6 +7,7 @@ from requests.structures import CaseInsensitiveDict
 from rets.exceptions import ParseError
 from rets.exceptions import RETSException
 from rets.parsers.base import Base
+from rets.parsers.base import is_xml_reply
 
 
 LINE_BREAK = re.compile(r"\r?\n")
@@ -157,7 +158,7 @@ class MultipleObjectParser(ObjectParser):
         # go through each part of the multipart message
         for part_header_dict, body in self._get_multiparts(response):
             # Some multipart requests respond with a text/XML part stating an error
-            if "xml" in part_header_dict.get("Content-Type", ""):
+            if is_xml_reply(part_header_dict.get("Content-Type")):
                 # Got an XML response, likely an error code.
                 if not body:
                     raise ParseError("Got an XML part in a multipart response, but it has no body")

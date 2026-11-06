@@ -964,6 +964,28 @@ class XMLReplyTester(unittest.TestCase):
         objs = list(SingleObjectParser().parse_image_response(response))
         self.assertEqual(objs[0]["content"], response.content)
 
+    def test_xml_content_type_with_parameters_or_in_any_case(self):
+        for content_type in ("text/xml; charset=utf-8", "Application/XML", " text/xml "):
+            with self.subTest(content_type=content_type):
+                self.assert_reply_code_raised(
+                    lambda r: list(SingleObjectParser().parse_image_response(r)), content_type
+                )
+
+    def test_xml_object_is_not_a_reply(self):
+        # An SVG floor plan is an object, though its type ends in "xml".
+        svg = '<svg xmlns="http://www.w3.org/2000/svg"/>'
+        objs = list(
+            SingleObjectParser().parse_image_response(FakeResponse(svg, headers={"Content-Type": "image/svg+xml"}))
+        )
+        self.assertEqual(objs[0]["content"], svg.encode())
+
+        body = b"--BOUND\r\nContent-Type: image/svg+xml\r\nObject-ID: 1\r\n\r\n" + svg.encode() + b"\r\n--BOUND--\r\n"
+        response = FakeResponse(
+            body.decode("latin-1"), headers={"Content-Type": 'multipart/parallel; boundary="BOUND"'}, content=body
+        )
+        objs = list(MultipleObjectParser().parse_image_response(response))
+        self.assertEqual([(o["content_type"], o["content"]) for o in objs], [("image/svg+xml", svg.encode())])
+
     def test_non_xml_response_is_not_checked(self):
         # An object that merely contains XML-like bytes is returned as it is.
         response = FakeResponse(self.ERROR, headers={"Content-Type": "image/jpeg"})
