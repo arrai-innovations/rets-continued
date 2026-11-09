@@ -59,6 +59,7 @@
 * End an auto-offset search quietly, logging a warning, when the server refuses a page it requested itself because the offset is past the end. Some servers, such as Flex MLS, truncate a page that ends at the last record and then reject the next offset with "Offset exceeds available rows.", which was raised after every row had been returned. The reply text must say the offset is beyond the records, so a server that rejects the Offset parameter itself still has its error raised. Such an error on the first page, whose offset the caller chose, is still raised too, as is any other error on a later page. Document `auto_offset` in the README, and correct its paging example to resume at record 10,001.
 * Read a search's `DELIMITER` value as hex, as RETS sends it. It was read as decimal, which only tab (`09`) survives, so a pipe delimiter, `7C`, failed the search with a `ValueError`. A value that is not hex now raises `ParseError` saying what was expected.
 * Return GetObject objects whose type ends in `xml`, such as an `image/svg+xml` floor plan, rather than reading them as RETS replies and failing with "The <RETS> tag was expected". Only a `text/xml` or `application/xml` response or multipart part is read as a reply, whatever the case of its type or its parameters.
+* Add an "Upgrading to version 3" section to the README, covering the changes that code written for 2.x may need to allow for.
 
 ## 2.0.1
 

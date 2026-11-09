@@ -37,6 +37,15 @@
     - [Search Results](#search-results)
     - [Custom Results Parser](#custom-results-parser)
   - [RETS Exceptions](#rets-exceptions)
+  - [Upgrading to version 3](#upgrading-to-version-3)
+    - [Python](#python)
+    - [Wildcard metadata](#wildcard-metadata)
+    - [Logging in over http](#logging-in-over-http)
+    - [Exceptions](#exceptions)
+    - [Searching and paging](#searching-and-paging)
+    - [Sessions](#sessions)
+    - [Objects](#objects)
+    - [Metadata values](#metadata-values)
   - [Contributing](#contributing)
   - [Testing](#testing)
   - [Helpful RETS Links](#helpful-rets-links)
@@ -61,6 +70,8 @@ $ pip install rets-continued
 ```
 
 You can now import the rets module within Python.
+
+Upgrading from 2.x? See [Upgrading to version 3](#upgrading-to-version-3).
 
 ## Quickstart
 
@@ -383,6 +394,76 @@ When the Session is instantiated, pass an instance of the class as the `search_p
 There are many RETS Reply Codes that can be returned from the server. As a rule, this rets library raises a `rets.exceptions.RETSException` for all reply codes that are non-zero. The reply_code and reply_text are set as parameters for the exception to make it easier for applications to catch and respond to specific reply codes.
 
 When the server refuses the HTTP request itself, such as with a 500, or answers with a redirect while `follow_redirects` is `False`, the library raises a `rets.exceptions.HTTPException` instead. Its `status_code` holds the HTTP status the server answered with. A 401 raises `rets.exceptions.NotLoggedIn`.
+
+## Upgrading to version 3
+
+Version 3 fixes a long list of bugs, and some of those fixes change what callers see. Most code written for 2.x keeps working, but check the points below that apply to yours. The [CHANGELOG](CHANGELOG.md) lists every change.
+
+### Python
+
+Python 3.11 or later is required. Python 3.10 is no longer supported.
+
+### Wildcard metadata
+
+A wildcard metadata request returns a dict of lists in both formats, as described under [Wildcards](#wildcards). In 2.x a COMPACT-DECODED wildcard returned one flat list of every name's rows. Each row still carries its `Resource`, `Class` or `Lookup`, so code that looped over the list can loop over the dict's lists instead:
+
+```python
+# 2.x
+for value in s.get_lookup_values("Property", "*"):
+    ...
+
+# 3.x
+for lookup_name, values in s.get_lookup_values("Property", "*").items():
+    for value in values:
+        ...
+```
+
+A `*` in both parts, or a `*` alone, returns a dict of dicts, keyed by resource and then by class or lookup. STANDARD-XML wildcards, which in 2.x failed or lost the lookup values, return the same shapes. Requests without a wildcard still return a list.
+
+Code that calls the metadata parsers directly should note that `CompactMetadata.parse()` returns a list or dict rather than a generator, and that both `CompactMetadata.parse()` and `StandardXMLMetadata.parse()` take the requested `meta_id`, which they need to key a wildcard result.
+
+### Logging in over http
+
+The session only falls back from digest to basic authentication when the login URL uses https, since basic authentication sends the password unencrypted. A server reached over plain http that only accepts basic authentication now fails to log in with `NotLoggedIn`. Pass `http_auth="basic"` to the Session to log in anyway; the session logs a warning when it sends the password this way.
+
+### Exceptions
+
+- A refused HTTP request raises `HTTPException` with the status in its `status_code`. In 2.x a 400 raised `NotLoggedIn`, and other errors, such as a 500, were handed to the parsers, which usually failed with a parse error. A 401, and a login refused with a 400 or 401, still raise `NotLoggedIn`.
+- Any other HTTP error whose body carries a RETS reply code raises `RETSException` with that reply code instead of `HTTPException`.
+- A search error raises a `RETSException` with its `reply_code` and `reply_text` set, like every other `RETSException`. Its message is the server's reply text, without the `RETS Error <code>:` prefix that 2.x added, so code that read the code out of `str(error)` should read `error.reply_code` instead.
+- Reply codes are read from a `RETS-STATUS` element too, so errors that 2.x missed there are now raised.
+- `search()` checks its arguments when it is called, rather than when its results are first iterated. A non-numeric `$gte` or `$lte` value raises `ValueError` rather than `TypeError`, and a `STANDARD-XML` search without a `search_parser` raises `ValueError`, where 2.x returned no rows.
+- `MaxrowException.rows_returned` counts only the truncated response's rows, not every earlier page's too.
+- A COMPACT-DECODED METADATA-SYSTEM response without a `SYSTEM` element raises `ParseError`, where 2.x failed with an `IndexError`.
+
+### Searching and paging
+
+- When the server truncates a search started without an `offset`, the next page starts at the record after the last one received. In 2.x it started one record early, so the last row of each page came back twice; code that removed those duplicates no longer needs to.
+- A search with `limit=None` follows truncated results, where 2.x failed with a `TypeError`.
+- When the server refuses a page the search requested itself because its offset is past the end, as Flex MLS does with "Offset exceeds available rows.", the search ends quietly and logs a warning, rather than raising after every row has been returned. Code that caught this error for an auto-offset search no longer receives it. The error is still raised for the first page, whose offset the caller chose, so code that pages with `auto_offset=False` still sees it.
+- Search filters are left unchanged: `$in` and `$nin` lists are no longer replaced with formatted copies. `$neq` dates and times are sent in the RETS format, such as `2026-01-02T03:04:05`.
+
+### Sessions
+
+- Logging out forgets the login. Later requests raise `NotLoggedIn`, including those of a search generator that is iterated after its `with Session(...)` block has ended, so read search results inside the block.
+- `logout()` returns `True` when the server has no Logout capability, or refuses the logout with a 401 because the session has already ended, rather than raising `NotLoggedIn`.
+- When a `with Session(...)` block raises and logging out then fails as well, the block's error is raised, not the logout's.
+- A version given as a bare number, such as `1.7.2`, gets the `RETS/` prefix, in `Session.version` and in the `RETS-Version` header. The user agent digest now hashes the version with its prefix, as the RETS spec requires, so the digest sent with `user_agent_password` differs from the one 2.x sent.
+- `follow_redirects=False` is honoured. In 2.x redirects were always followed; now a redirect raises `HTTPException` naming where the server pointed.
+- `cache_metadata=False` no longer stores metadata responses.
+- Login response lines starting with `X-` whose value is a URL or an absolute path, such as `X-Selector=/rets/selector`, are read as capabilities rather than login details.
+
+### Objects
+
+- `get_object()` no longer returns an extra object, with every field `None`, for text a server sends ahead of the first part of a multipart response.
+- Objects whose type ends in `xml`, such as an `image/svg+xml` floor plan, are returned as objects. Only a `text/xml` or `application/xml` response or part is read as a RETS reply.
+- Part headers are read in any case, so a server sending `content-id` gets its `content_id`, `object_id`, `content_type` and `location` filled in.
+- Objects whose content ends in CR or LF bytes keep those bytes, so their `content_md5` may differ from the one 2.x computed.
+
+### Metadata values
+
+- COMPACT-DECODED metadata rows are split on tabs, so a value containing spaces, or an empty field, stays in its own column. In 2.x such rows had their values shifted into the wrong columns.
+- A STANDARD-XML response without the requested metadata element returns no entries, as COMPACT-DECODED does, rather than raising.
 
 ## Contributing
 
