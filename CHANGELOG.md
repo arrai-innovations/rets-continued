@@ -1,6 +1,6 @@
 # RETS Changelog
 
-## Unreleased
+## 3.0.0
 
 * **Breaking:** drop support for Python 3.10, which reached its end of life in October 2026. The package now requires Python 3.11 or later.
 * **Breaking:** return COMPACT-DECODED wildcard metadata as a dict of lists keyed by name, the same shape as STANDARD-XML, rather than one flat list of every name's rows. A wildcard result therefore keeps its shape when the session switches to STANDARD-XML because the server rejects COMPACT-DECODED. Each row still carries its `Resource`, `Class` or `Lookup`, so code that iterated the list can read the same rows from the dict's lists instead. Requests without a wildcard still return a list. `CompactMetadata.parse()` now returns a list or dict rather than a generator, and takes the requested `meta_id`.

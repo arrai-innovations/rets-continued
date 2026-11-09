@@ -3,7 +3,7 @@ from .session import Session
 
 
 __title__ = "rets-continued"
-__version__ = "2.0.1"
+__version__ = "3.0.0"
 __author__ = ["REfindly", "Arrai Innovations"]
 __license__ = "MIT"
 __copyright__ = ["Copyright 2019 REfindly", "Copyright 2026 Arrai Innovations"]
