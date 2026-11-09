@@ -1096,6 +1096,11 @@ class ReplyCodeReadersAgreeTester(unittest.TestCase):
         '<RETS ReplyCode="0"><OTHER><RETS-STATUS ReplyCode="20203"/></OTHER></RETS>': None,
         '<HTML><RETS-STATUS ReplyCode="20203"/></HTML>': None,
         '<RETS ReplyCode="0"/>': None,
+        # A default namespace, which ElementTree puts in every tag beneath it, is read past.
+        '<RETS xmlns="http://rets.org/xsd/RETS" ReplyCode="20203"/>': "20203",
+        '<RETS xmlns="http://rets.org/xsd/RETS" ReplyCode="0"><RETS-STATUS ReplyCode="20203"/></RETS>': "20203",
+        '<RETS-STATUS xmlns="http://rets.org/xsd/RETS" ReplyCode="20203"/>': "20203",
+        '<RETS xmlns="http://rets.org/xsd/RETS" ReplyCode="0"/>': None,
     }
 
     @staticmethod
@@ -1238,6 +1243,16 @@ class SearchCursorTester(unittest.TestCase):
             "</RETS>"
         )
         self.assertEqual(rows, [{"ListingID": "123", "ListPrice": "200000"}, {}])
+
+    def test_namespace(self):
+        # A default namespace names every element "{uri}DATA" and so on, which must not hide the rows.
+        rows = self.parse(
+            '<RETS xmlns="http://rets.org/xsd/RETS" ReplyCode="0"><DELIMITER value="7C"/>'
+            "<COLUMNS>|ListingID|</COLUMNS><DATA>|123|</DATA></RETS>",
+        )
+        self.assertEqual(rows, [{"ListingID": "123"}])
+        with self.assertRaises(MaxrowException):
+            self.parse('<RETS xmlns="http://rets.org/xsd/RETS" ReplyCode="0"><MAXROWS/></RETS>')
 
     def test_delimiter_without_a_value(self):
         # Falls back to the tab default rather than blowing up on int(None).

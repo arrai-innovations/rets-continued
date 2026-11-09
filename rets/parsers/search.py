@@ -9,6 +9,7 @@ from rets.exceptions import ParseError
 from rets.exceptions import RETSException
 from rets.parsers.base import REPLY_CODE_PATHS
 from rets.parsers.base import Base
+from rets.parsers.base import local_name
 from rets.parsers.base import reply_code_error
 
 
@@ -64,20 +65,22 @@ class OneXSearchCursor(Base):
         columns = []
         rows = 0  # rows in this response, whatever earlier responses this parser has read
         root = None
-        path = []  # the names of the elements leading to the current one, from the root
+        # The names of the elements leading to the current one, from the root, without any namespace, so that a
+        # response in one reads as one without.
+        path = []
         events = iterparse(ResponseStream(response), events=("start", "end"))
 
         for event, elem in events:
             if event == "start":
-                path.append(elem.tag)
+                path.append(local_name(elem.tag))
                 if len(path) == 1:
                     root = elem
                 self._check_reply_code(elem, path)
                 continue
-            path.pop()
+            tag = path.pop()
 
             # Analyze search record data
-            if elem.tag == "DATA":
+            if tag == "DATA":
                 # An empty row still counts, so that the offsets stay aligned with the rows the
                 # server actually sent.
                 row = elem.text or ""
@@ -87,17 +90,17 @@ class OneXSearchCursor(Base):
                 yield data_dict
 
             # Analyze delimiter
-            elif elem.tag == "DELIMITER":
+            elif tag == "DELIMITER":
                 val = elem.get("value")
                 if val:  # keep the tab default when the server sends the tag without a value
                     delim = self._read_delimiter(val)
 
             # Analyze columns
-            elif elem.tag == "COLUMNS":
+            elif tag == "COLUMNS":
                 columns = (elem.text or "").split(delim)
 
             # handle max rows
-            elif elem.tag == "MAXROWS":
+            elif tag == "MAXROWS":
                 logger.debug("MAXROWS Tag reached in XML")
                 logger.debug("The response held %s rows before MAXROWS", rows)
                 raise MaxrowException(rows)

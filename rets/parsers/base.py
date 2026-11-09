@@ -67,6 +67,16 @@ def reply_code_error_in_document(document, ignore=("0",)):
     return None
 
 
+def local_name(tag):
+    """
+    Get an element's name without its namespace. ElementTree names an element in a namespace "{uri}RETS", where
+    xmltodict names one in a default namespace just "RETS".
+    :param tag: The element's tag, as ElementTree gives it
+    :return: string
+    """
+    return tag.rpartition("}")[2]
+
+
 def reply_code_error_in_tree(root, ignore=("0",)):
     """
     Finds the first error reply code in a response parsed by ElementTree
@@ -75,9 +85,12 @@ def reply_code_error_in_tree(root, ignore=("0",)):
     :return: The (reply_code, reply_text) of an error reply code, or None
     """
     for root_name, *names in REPLY_CODE_PATHS:
-        if root.tag != root_name:
+        if local_name(root.tag) != root_name:
             continue
-        for element in root.findall("/".join(names)) if names else [root]:
+        elements = [root]
+        for name in names:
+            elements = [child for parent in elements for child in parent if local_name(child.tag) == name]
+        for element in elements:
             error = reply_code_error(element.attrib, ignore)
             if error:
                 return error
