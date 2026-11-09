@@ -607,13 +607,30 @@ class SessionTester(unittest.TestCase):
 
         self.assertEqual(caught.exception.reply_text, "Invalid parameter: Offset")
 
+    def test_auto_offset_raises_an_offset_past_the_servers_limit(self):
+        # The server has records past its largest allowed offset, so ending the search there would quietly drop them.
+        reply_text = "Offset exceeds maximum allowed offset of 10000"
+        with self.assertRaises(RETSException) as caught:
+            self.search_past_the_end(f'<RETS ReplyCode="20203" ReplyText="{reply_text}"/>')
+
+        self.assertEqual(caught.exception.reply_text, reply_text)
+
     def test_offset_errors(self):
         cases = {
             "Offset exceeds available rows.": True,
             "OFFSET EXCEEDS AVAILABLE ROWS": True,
             "Requested offset is beyond the end of the result set": True,
-            "Offset out of range": True,
             "Offset 5001 is greater than the record count": True,
+            "Offset exceeds total rows": True,
+            # These do not say what the offset is past, so it may be a limit rather than the end of the records.
+            "Offset out of range": False,
+            "Offset is too large": False,
+            # A limit on the offset is not the end of the records: ending there would drop the rest.
+            "Offset exceeds maximum allowed offset of 10000": False,
+            "Offset must not be greater than 10000": False,
+            "Offset exceeds the maximum number of records": False,
+            "Offset exceeds the record limit": False,
+            "Offset exceeds max rows allowed": False,
             "Invalid parameter: Offset": False,
             "Offset not supported": False,
             "Invalid offset": False,

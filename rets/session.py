@@ -30,10 +30,12 @@ from rets.utils.get_object import GetObject
 logger = logging.getLogger("rets")
 
 # Words a server's reply text uses to say an offset is beyond the records it has, as in "Offset exceeds available
-# rows."
-OFFSET_PAST_THE_END = re.compile(
-    r"\b(?:exceed|beyond|out of range|past|greater than|larger than|too (?:large|high|big))"
-)
+# rows.": that it is past something, and that what it is past is the records.
+OFFSET_PAST = re.compile(r"\b(?:exceed|beyond|past|greater than|larger than|too (?:large|high|big))")
+OFFSET_RECORDS = re.compile(r"\b(?:rows?|records?|results?|matches|available|end|count|total)\b")
+# Words that say the offset is past a limit instead, as in "Offset exceeds maximum allowed offset of 10000". Ending
+# the search there would quietly drop every record after the limit.
+OFFSET_LIMIT = re.compile(r"\b(?:max(?:imum)?|allowed|permitted|limits?)\b")
 
 
 class Session:
@@ -569,12 +571,19 @@ class Session:
         Whether a RETS error reports an offset past the records the server has, such as Flex MLS's "Offset exceeds
         available rows." The reply code for this is not standard, so the reply text is all there is to go by. It
         must say the offset is beyond the records, so that a server rejecting the Offset parameter itself, with
-        "Invalid parameter: Offset" say, still has its error raised rather than its first page taken for all.
+        "Invalid parameter: Offset" say, still has its error raised rather than its first page taken for all. A
+        text that mentions a limit is raised too, since the offset may be past the largest the server allows
+        rather than past the records, and taking that for the end would lose the records after it without a word.
         :param error: The RETSException
         :return: bool
         """
         text = str(error.reply_text or "").lower()
-        return "offset" in text and OFFSET_PAST_THE_END.search(text) is not None
+        return (
+            "offset" in text
+            and OFFSET_PAST.search(text) is not None
+            and OFFSET_RECORDS.search(text) is not None
+            and OFFSET_LIMIT.search(text) is None
+        )
 
     def _request(self, capability, options=None, stream=False, *, auth_fallback=False):
         """
