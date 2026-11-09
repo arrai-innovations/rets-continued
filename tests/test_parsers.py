@@ -119,6 +119,75 @@ class CompactSystemMetadataTester(unittest.TestCase):
         )
 
 
+class StandardXMLSystemMetadataTester(unittest.TestCase):
+    """METADATA-SYSTEM extraction from STANDARD-XML, which gives the same keys as COMPACT-DECODED"""
+
+    def parse(self, body):
+        response = FakeResponse(
+            f'<RETS ReplyCode="0"><METADATA><METADATA-SYSTEM Version="1.11.76001">{body}</METADATA-SYSTEM></METADATA>'
+            "</RETS>"
+        )
+        return StandardXMLMetadata().parse(response=response, metadata_type="METADATA-SYSTEM")
+
+    def test_fields(self):
+        self.assertEqual(
+            self.parse(
+                "<System><SystemID>MLS-RETS</SystemID><SystemDescription>A description</SystemDescription>"
+                "<TimeZoneOffset>-05:00</TimeZoneOffset><Comments>Some comments</Comments></System>"
+            ),
+            [
+                {
+                    "system_id": "MLS-RETS",
+                    "system_description": "A description",
+                    "timezone_offset": "-05:00",
+                    "comments": "Some comments",
+                    "version": "1.11.76001",
+                }
+            ],
+        )
+
+    def test_comments(self):
+        # Inside System, as the spec has them, or alongside it, in either case.
+        bodies = (
+            "<SYSTEM><SystemID>MLS-RETS</SystemID><COMMENTS>Some comments</COMMENTS></SYSTEM>",
+            "<System><SystemID>MLS-RETS</SystemID></System><Comments>Some comments</Comments>",
+            "<System><SystemID>MLS-RETS</SystemID></System><COMMENTS>\n  Some comments\n</COMMENTS>",
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                self.assertEqual(
+                    self.parse(body),
+                    [{"system_id": "MLS-RETS", "comments": "Some comments", "version": "1.11.76001"}],
+                )
+
+    def test_formats_agree(self):
+        compact = FakeResponse(
+            SYSTEM_RESPONSE.format(
+                body='<SYSTEM SystemID="MLS-RETS" SystemDescription="A description" TimeZoneOffset="-05:00"/>'
+                "<COMMENTS>Some comments</COMMENTS>"
+            )
+        )
+        self.assertEqual(
+            self.parse(
+                "<System><SystemID>MLS-RETS</SystemID><SystemDescription>A description</SystemDescription>"
+                "<TimeZoneOffset>-05:00</TimeZoneOffset><Comments>Some comments</Comments></System>"
+            ),
+            CompactMetadata().parse(response=compact, metadata_type="METADATA-SYSTEM"),
+        )
+
+    def test_missing_system(self):
+        bodies = (
+            "",
+            "<System/>",
+            "<System>\n</System>",
+            "<System>MLS-RETS</System>",
+            "<Comments>Only comments</Comments>",
+        )
+        for body in bodies:
+            with self.subTest(body=body), self.assertRaisesRegex(ParseError, "Could not get the System key"):
+                self.parse(body)
+
+
 class CompactDataMetadataTester(unittest.TestCase):
     """Splitting COMPACT-DECODED metadata rows into their columns"""
 

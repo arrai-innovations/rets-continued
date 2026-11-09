@@ -229,7 +229,7 @@ class StandardXMLMetadata(MetadataParser):
         metadata = self._child(self._child(xml, "RETS"), "METADATA")
 
         if metadata_type == "METADATA-SYSTEM":
-            return [self._parse_system(metadata.get(metadata_type) or {})]
+            return [self._parse_system(self._child(metadata, metadata_type))]
 
         if metadata_type not in self.metadata_types:
             msg = f"Got an unknown metadata type of {metadata_type!s}"
@@ -269,16 +269,25 @@ class StandardXMLMetadata(MetadataParser):
         :return: dict
         """
         syst = base.get("System", base.get("SYSTEM"))
-        if not syst:
+        if not isinstance(syst, dict):
+            # Missing, or with no fields, which xmltodict gives as None or the element's text.
             raise ParseError("Could not get the System key from a METADATA-SYSTEM request.")
 
+        # The same keys as the COMPACT-DECODED parser gives, so the result does not change with the format.
         system_obj = {}
         if syst.get("SystemID"):
             system_obj["system_id"] = str(syst["SystemID"])
         if syst.get("SystemDescription"):
             system_obj["system_description"] = str(syst["SystemDescription"])
-        if syst.get("Comments"):
-            system_obj["comments"] = syst["Comments"]
+        if syst.get("TimeZoneOffset"):
+            system_obj["timezone_offset"] = str(syst["TimeZoneOffset"])
+
+        # The comments belong inside System, but some servers put them alongside it instead.
+        comments = syst.get("Comments") or syst.get("COMMENTS") or base.get("Comments") or base.get("COMMENTS")
+        if isinstance(comments, str):
+            comments = comments.strip()
+        if comments:
+            system_obj["comments"] = comments
         if base.get("@Version"):
             system_obj["version"] = base["@Version"]
         return system_obj
