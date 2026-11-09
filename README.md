@@ -442,6 +442,7 @@ The session only falls back from digest to basic authentication when the login U
 - A search with `limit=None` follows truncated results, where 2.x failed with a `TypeError`.
 - A truncated search that started from an `Offset` in `optional_parameters` continues from that offset, where 2.x went back to near the first record. An `Offset` that is not a whole number, whether passed as `offset` or in `optional_parameters`, raises `ValueError` when `search()` is called.
 - When the server refuses a page the search requested itself because its offset is past the end, as Flex MLS does with "Offset exceeds available rows.", the search ends quietly and logs a warning, rather than raising after every row has been returned. Code that caught this error for an auto-offset search no longer receives it. The error is still raised for the first page, whose offset the caller chose, so code that pages with `auto_offset=False` still sees it.
+- A search's `DELIMITER` value is read as hex, as RETS specifies, so a pipe is `7C`. 2.x read it as decimal, which only tab, `09`, survives both ways. A server that sends a decimal code, such as `124` for a pipe, now fails the search with `ParseError`; a two-digit decimal code, such as `44` for a comma, cannot be told apart from hex and is read as a different character.
 - Search filters are left unchanged: `$in` and `$nin` lists are no longer replaced with formatted copies. `$neq` dates and times are sent in the RETS format, such as `2026-01-02T03:04:05`.
 
 ### Sessions

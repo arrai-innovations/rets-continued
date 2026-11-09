@@ -1,5 +1,6 @@
 import io
 import logging
+import re
 
 from defusedxml.ElementTree import iterparse
 
@@ -16,6 +17,9 @@ logger = logging.getLogger("rets")
 # The reply codes a search response can carry without reporting an error. 20201 is No Records Found, which a search
 # returns as no rows.
 SEARCH_SUCCESS_REPLY_CODES = ("0", "20201")
+# A DELIMITER value: the character's code in hex. RETS gives two digits; a single one reads the same in hex as in
+# decimal, so it is taken too.
+DELIMITER_VALUE = re.compile(r"\s*([0-9A-Fa-f]{1,2})\s*")
 
 
 class ResponseStream(io.RawIOBase):
@@ -111,11 +115,13 @@ class OneXSearchCursor(Base):
         :param value: The value attribute
         :return: The delimiter character
         """
-        try:
-            return chr(int(value, 16))
-        except ValueError:
+        # Anything longer than two digits is refused rather than read as hex: "124", a pipe in decimal, would
+        # otherwise become "\u0124", and no row would split. int() would also take forms such as "0x7C".
+        digits = DELIMITER_VALUE.fullmatch(value)
+        if not digits:
             msg = f"Could not read the search delimiter {value!r}, which RETS gives as two hex digits, such as 09."
-            raise ParseError(msg) from None
+            raise ParseError(msg)
+        return chr(int(digits.group(1), 16))
 
     @staticmethod
     def _check_reply_code(elem, path):

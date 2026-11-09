@@ -1246,7 +1246,8 @@ class SearchCursorTester(unittest.TestCase):
 
     def test_delimiter_is_hex(self):
         # Only tab reads the same in decimal, which hid that the value is hex.
-        for value, delimiter in (("09", "\t"), ("7C", "|"), ("7c", "|"), ("2C", ","), ("3B", ";")):
+        cases = (("09", "\t"), ("7C", "|"), ("7c", "|"), ("2C", ","), ("3B", ";"), ("9", "\t"), (" 7C ", "|"))
+        for value, delimiter in cases:
             with self.subTest(value=value):
                 rows = self.parse(
                     f'<RETS ReplyCode="0"><DELIMITER value="{value}"/>'
@@ -1256,8 +1257,10 @@ class SearchCursorTester(unittest.TestCase):
                 self.assertEqual(rows, [{"ListingID": "123", "City": "New Haven"}])
 
     def test_unreadable_delimiter(self):
-        with self.assertRaisesRegex(ParseError, "two hex digits"):
-            self.parse('<RETS ReplyCode="0"><DELIMITER value="tab"/><COLUMNS>\tA\t</COLUMNS></RETS>')
+        # "124" is a pipe in decimal, which read as hex would be a character no row holds, so nothing would split.
+        for value in ("tab", "124", "009", "0x7C", "+7C", "7_C", "7C7C"):
+            with self.subTest(value=value), self.assertRaisesRegex(ParseError, "two hex digits"):
+                self.parse(f'<RETS ReplyCode="0"><DELIMITER value="{value}"/><COLUMNS>\tA\t</COLUMNS></RETS>')
 
     def test_missing_delimiter_element(self):
         rows = self.parse('<RETS ReplyCode="0"><COLUMNS>\tListingID\t</COLUMNS><DATA>\t123\t</DATA></RETS>')
