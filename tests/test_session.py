@@ -544,23 +544,40 @@ class SessionTester(unittest.TestCase):
         with open("tests/rets_responses/COMPACT-DECODED/Search_2of2.xml") as f:
             search2_contents = "".join(f.readlines())
 
-        with responses.RequestsMock() as resps:
-            for contents in (search1_contents, search2_contents):
-                resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=contents, status=200)
+        # The offset argument wins over an Offset in optional_parameters, as it is the one sent.
+        starts = {
+            "offset": {"offset": 11},
+            "offset as a string": {"offset": "11"},
+            "optional_parameters": {"optional_parameters": {"Offset": 11}},
+            "optional_parameters as a string": {"optional_parameters": {"Offset": "11"}},
+            "both": {"offset": 11, "optional_parameters": {"Offset": 51}},
+        }
+        for name, arguments in starts.items():
+            with self.subTest(name), responses.RequestsMock() as resps:
+                for contents in (search1_contents, search2_contents):
+                    resps.add(resps.POST, "http://server.rets.com/rets/Search.ashx", body=contents, status=200)
 
-            results = list(
-                self.session.search(
-                    resource="Property",
-                    resource_class="RES",
-                    search_filter={"ListingPrice": 200000},
-                    offset=11,
+                results = list(
+                    self.session.search(
+                        resource="Property",
+                        resource_class="RES",
+                        search_filter={"ListingPrice": 200000},
+                        **arguments,
+                    )
                 )
-            )
-            sent = [parse_qs(call.request.body) for call in resps.calls]
+                sent = [parse_qs(call.request.body) for call in resps.calls]
 
-        self.assertEqual(len(results), 6)
-        # Records 11 to 13 came back, so the next page starts at record 14.
-        self.assertEqual([q.get("Offset") for q in sent], [["11"], ["14"]])
+                self.assertEqual(len(results), 6)
+                # Records 11 to 13 came back, so the next page starts at record 14.
+                self.assertEqual([q.get("Offset") for q in sent], [["11"], ["14"]])
+
+    def test_offset_that_is_not_a_number(self):
+        # Refused when search() is called, rather than by the server or when a later page's offset is worked out.
+        for arguments in ({"offset": "eleven"}, {"optional_parameters": {"Offset": "eleven"}}):
+            with self.subTest(arguments), self.assertRaises(ValueError):
+                self.session.search(
+                    resource="Property", resource_class="RES", search_filter={"ListingPrice": 200000}, **arguments
+                )
 
     OFFSET_ERROR = '<RETS ReplyCode="20203" ReplyText="Offset exceeds available rows."/>'
 

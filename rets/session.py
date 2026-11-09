@@ -479,6 +479,9 @@ class Session:
 
         if offset:
             parameters["Offset"] = offset
+        # The search starts from the Offset sent, whether it came from offset or from optional_parameters, so
+        # the pages that follow have to count from it.
+        offset = self._search_offset(parameters.get("Offset"))
 
         if self.search_parser:
             search_cursor = self.search_parser
@@ -564,6 +567,21 @@ class Session:
             # A streamed response holds its connection until it is read to the end or closed. This also
             # covers a caller that stops iterating early, and a parser that raises.
             response.close()
+
+    @staticmethod
+    def _search_offset(value):
+        """
+        Read the Offset a search starts from as a number, to work out the offsets of the pages that follow
+        :param value: The Offset parameter, such as 101 or "101", or None when it is not sent
+        :return: int, or None when the search starts from the first record
+        """
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            msg = f"The search Offset must be a whole number, not {value!r}."
+            raise ValueError(msg) from None
 
     @staticmethod
     def _is_offset_error(error):
